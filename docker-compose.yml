@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: corecs-postgres
+    environment:
+      POSTGRES_USER: csrag
+      POSTGRES_PASSWORD: csrag
+      POSTGRES_DB: cs_rag
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U csrag -d cs_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: corecs-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://csrag:csrag@postgres:5432/cs_rag
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-glm-4.7-flash}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Persist HF model cache between restarts
+      - hf_cache:/root/.cache/huggingface
+
+volumes:
+  postgres_data:
+  hf_cache:
