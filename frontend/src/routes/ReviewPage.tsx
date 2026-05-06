@@ -402,6 +402,13 @@ export default function ReviewPage() {
   }
 
   const noCards = !isLoading && !error && !currentCard && !result
+  const hasScopedTopics = orderedTopics.length > 0
+  const emptyStateTitle = hasScopedTopics
+    ? 'No cards available for this selection'
+    : 'No cards available right now'
+  const emptyStateBody = hasScopedTopics
+    ? 'Your current topic filter returned no cards. Try widening the scope or starting from all topics.'
+    : 'There are no cards available right now. Return to the dashboard and try a different session scope.'
 
   const progressPercent = useMemo(() => {
     if (!progress || progress.total === 0) return 0
@@ -487,8 +494,8 @@ export default function ReviewPage() {
 
       {noCards ? (
         <Card className="review-empty" tone="inset" padding="lg">
-          <StateMessage title="No cards due right now" tone="success">
-            Nice work. You can return to the dashboard and start a new session later.
+          <StateMessage title={emptyStateTitle} tone="warning">
+            {emptyStateBody}
           </StateMessage>
           <div className="review-empty__actions">
             <Button type="button" onClick={finishAndNavigateBack}>

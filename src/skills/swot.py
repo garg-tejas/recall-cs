@@ -317,7 +317,7 @@ class MasterySWOTRepository:
         swot_rows = {
             (row.subject, row.topic_key): row for row in swot_result.scalars().all()
         }
-        now = dt.datetime.utcnow()
+        now = dt.datetime.now(dt.timezone.utc)
 
         for key, snap in mastery.items():
             row = mastery_rows.get(key)

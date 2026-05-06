@@ -6,12 +6,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import time
 from pathlib import Path
 from typing import List, Optional
 
-from src.llm.client import ModelScopeClient, create_client
+from src.llm.client import create_client
 from src.rag.index import ChunkRecord, load_chunks
 
 from .chunk_selector import select_chunks_for_generation

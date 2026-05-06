@@ -36,6 +36,17 @@ def _normalize_verdict(raw_verdict: str, *, score: int) -> str:
     return "incorrect"
 
 
+def _extract_json(raw: str) -> str:
+    """Strip markdown fences and return the inner JSON string."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        # Remove opening fence (``` or ```json)
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw
+    if raw.endswith("```"):
+        raw = raw.rsplit("\n", 1)[0]
+    return raw.strip()
+
+
 def _coerce_string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         if isinstance(value, str) and value.strip():
@@ -134,15 +145,15 @@ Respond with a single JSON object with this structure:
   "verdict": "correct" | "partially_correct" | "incorrect",
   "missing_points": ["..."],
   "incorrect_points": ["..."],
-  "concept_summary": "<2-4 sentences. Explain the core concept clearly if answer is partial/incorrect; use empty string when correct.>",
-  "where_you_missed": ["<1-3 concise, concrete misses only when partial/incorrect>"],
+  "concept_summary": "<1-2 sentences max. Explain the core concept clearly if answer is partial/incorrect; use empty string when correct.>",
+  "where_you_missed": ["<1-2 concise, concrete misses only when partial/incorrect>"],
   "should_remediate": <true when partial/incorrect, false when correct>
 }
 
 Rules:
 - Be strict but fair. Do not nitpick minor wording differences.
 - Only point out real conceptual misses; do not invent faults.
-- Keep output concise and actionable.
+- Keep output concise and actionable. Brevity is critical — stay under ~300 tokens.
 
 Do not include any explanation outside the JSON. The JSON must be the only content in your reply.
 """
@@ -196,7 +207,12 @@ def grade_answer(
     )
 
     client = create_client()
-    raw = client.generate_single(prompt, max_tokens=1024, temperature=0.1)
+    raw = client.generate_single(
+        prompt,
+        max_tokens=4096,
+        temperature=0.1,
+        response_format={"type": "json_object"},
+    )
 
     score = 3
     verdict = "partially_correct"
@@ -207,7 +223,7 @@ def grade_answer(
     should_remediate = True
 
     try:
-        data: Dict[str, Any] = json.loads(raw)
+        data: Dict[str, Any] = json.loads(_extract_json(raw))
         score = int(data.get("score_0_5", score))
         score = max(0, min(5, score))
         verdict = str(data.get("verdict", verdict))

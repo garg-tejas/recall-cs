@@ -61,13 +61,15 @@ class QuizService:
             return getattr(topic, "name", None)
 
         # Filter cards by topic if requested.
+        # Accept either Topic.name (e.g. "cn") or Card.topic_key (e.g. "cn:core").
         filtered_cards: List[Card] = []
         for card in cards:
             if topic_filter is None:
                 filtered_cards.append(card)
             else:
                 name = _topic_name(card)
-                if name in topic_filter:
+                topic_key = card.topic_key
+                if name in topic_filter or (topic_key and topic_key in topic_filter):
                     filtered_cards.append(card)
 
         # Map of card_id -> ReviewState for this user.

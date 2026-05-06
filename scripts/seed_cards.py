@@ -41,7 +41,7 @@ def infer_topic_key(question: Dict) -> str:
     if isinstance(explicit, str) and explicit.strip():
         return explicit.strip().lower()
 
-    subject = str(question.get("source_subject") or "unknown").strip().lower()
+    subject = str(question.get("subject") or question.get("source_subject") or "unknown").strip().lower()
     header = str(question.get("source_header") or "").strip()
     if header:
         tail = header.split(">")[-1].strip()
@@ -77,7 +77,8 @@ def summarize_questions(questions: List[Dict]) -> None:
     for q in questions:
         by_difficulty[q.get("difficulty", "unknown")] += 1
         by_qtype[q.get("question_type", "unknown")] += 1
-        by_subject[q.get("source_subject", "unknown")] += 1
+        subj = q.get("subject") or q.get("source_subject") or "unknown"
+        by_subject[subj] += 1
 
     print("\nBy difficulty:")
     for diff, count in sorted(by_difficulty.items(), key=lambda x: x[0]):
@@ -89,7 +90,7 @@ def summarize_questions(questions: List[Dict]) -> None:
         pct = (count / total) * 100
         print(f"  {qtype:12s}: {count:5d} ({pct:5.1f}%)")
 
-    print("\nBy source_subject:")
+    print("\nBy subject:")
     for subj, count in sorted(by_subject.items(), key=lambda x: x[0]):
         pct = (count / total) * 100
         print(f"  {subj:10s}: {count:5d} ({pct:5.1f}%)")
@@ -106,7 +107,7 @@ async def apply_seed(questions: List[Dict]) -> None:
     async with AsyncSessionLocal() as session:
         # 1) Ensure topics exist for each source_subject.
         subjects = sorted(
-            {q.get("source_subject") for q in questions if q.get("source_subject")}
+            {q.get("subject") or q.get("source_subject") for q in questions if q.get("subject") or q.get("source_subject")}
         )
         print(f"\nDetected subjects: {subjects or ['(none)']}")
 
@@ -132,7 +133,7 @@ async def apply_seed(questions: List[Dict]) -> None:
             print(f"Topics in DB: {sorted(existing_topics.keys())}")
         else:
             existing_topics = {}
-            print("No source_subject found in questions; skipping topic creation.")
+            print("No subject or source_subject found in questions; skipping topic creation.")
 
         # 2) Seed cards.
         inserted = 0
@@ -140,7 +141,7 @@ async def apply_seed(questions: List[Dict]) -> None:
         skipped_incomplete = 0
 
         for q in questions:
-            subject = q.get("source_subject")
+            subject = q.get("subject") or q.get("source_subject")
             if not subject:
                 skipped_incomplete += 1
                 continue
@@ -183,7 +184,7 @@ async def apply_seed(questions: List[Dict]) -> None:
                 provenance_json={
                     "source": "validated_seed",
                     "source_header": q.get("source_header"),
-                    "source_subject": q.get("source_subject"),
+                    "source_subject": q.get("subject") or q.get("source_subject"),
                     "quality_score": q.get("quality_score"),
                 },
                 atomic_facts=q.get("atomic_facts"),

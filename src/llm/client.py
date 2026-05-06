@@ -85,10 +85,11 @@ class ModelScopeClient:
         top_p: float = 0.9,
         stop: Optional[List[str]] = None,
         max_retries: int = 3,
+        response_format: Optional[dict] = None,
     ) -> str:
         """Generate text for a single prompt."""
         results = self.generate(
-            [prompt], max_tokens, temperature, top_p, stop, max_retries
+            [prompt], max_tokens, temperature, top_p, stop, max_retries, response_format
         )
         return results[0] if results else ""
 
@@ -100,6 +101,7 @@ class ModelScopeClient:
         top_p: float = 0.9,
         stop: Optional[List[str]] = None,
         max_retries: int = 3,
+        response_format: Optional[dict] = None,
     ) -> List[str]:
         """Generate text for a batch of prompts with rate limiting."""
         results = []
@@ -117,6 +119,8 @@ class ModelScopeClient:
                         "top_p": top_p,
                         "stop": stop_param,
                     }
+                    if response_format is not None:
+                        create_kw["response_format"] = response_format
                     # Z.AI: disable thinking so the model returns directly in content
                     if "z.ai" in self.base_url.lower():
                         create_kw["extra_body"] = {"thinking": {"type": "disabled"}}

@@ -35,11 +35,11 @@ DATABASE_URL=postgresql+asyncpg://csrag:csrag@localhost:5432/cs_rag
 If you do not already have Postgres running, start a container:
 
 ```bash
-docker run --name csrag-postgres \
-  -e POSTGRES_USER=csrag \
-  -e POSTGRES_PASSWORD=csrag \
-  -e POSTGRES_DB=cs_rag \
-  -p 5432:5432 \
+docker run --name csrag-postgres `
+  -e POSTGRES_USER=csrag `
+  -e POSTGRES_PASSWORD=csrag `
+  -e POSTGRES_DB=cs_rag `
+  -p 5432:5432 `
   -d postgres:16
 ```
 

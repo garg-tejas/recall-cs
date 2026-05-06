@@ -393,15 +393,23 @@ export default function LearningPathPage() {
     [pathNodes],
   )
 
+  // Derive subject names from path nodes for the topics filter.
+  // topics should be subject names (e.g. "cn") not topic_keys (e.g. "cn:core")
+  // because the backend matches topics against Topic.name.
+  const subjectsFromPath = useMemo(
+    () => [...new Set(pathNodes.map((node) => node.subject).filter(Boolean))],
+    [pathNodes],
+  )
+
   const reviewScopeFromPath = useMemo<ReviewSessionScopeState>(
     () => ({
       ...nextScopeState,
-      topics: orderedPathTopicKeys.length > 0 ? orderedPathTopicKeys : nextScopeState.topics ?? null,
+      topics: subjectsFromPath.length > 0 ? subjectsFromPath : nextScopeState.topics ?? null,
       pathTopicsOrdered: orderedPathTopicKeys.length > 0 ? orderedPathTopicKeys : null,
       preferredTopic: null,
       source: 'learning-path',
     }),
-    [nextScopeState, orderedPathTopicKeys],
+    [nextScopeState, orderedPathTopicKeys, subjectsFromPath],
   )
 
   const launchNodeReview = useCallback(
@@ -416,7 +424,7 @@ export default function LearningPathPage() {
       navigate('/review', {
         state: {
           ...reviewScopeFromPath,
-          topics: orderedTopics.length > 0 ? orderedTopics : reviewScopeFromPath.topics ?? null,
+          topics: reviewScopeFromPath.topics,
           pathTopicsOrdered: orderedTopics.length > 0 ? orderedTopics : null,
           preferredTopic: preferredTopic || null,
         },
