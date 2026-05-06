@@ -2,8 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install uv (fast Python package manager)
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# Install system deps + uv
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && curl -LsSf https://astral.sh/uv/install.sh | sh
 
@@ -11,11 +13,14 @@ ENV PATH="/root/.local/bin:$PATH"
 
 # Copy dependency manifests first for Docker layer caching
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
 
-# Pre-download ML models so cold starts don't hit HuggingFace
-# This adds ~150MB to the image but prevents runtime downloads
-RUN uv run python -c "\
+# Install deps INCLUDING the cpu extra so torch is available.
+# --no-dev keeps it lean; --extra cpu pulls torch from the pytorch-cpu index.
+RUN uv sync --frozen --no-dev --extra cpu
+
+# Pre-download ML models so cold starts don't hit HuggingFace.
+# Uses the venv python directly to avoid uv run overhead/issues.
+RUN /app/.venv/bin/python -c "\
 from sentence_transformers import SentenceTransformer, CrossEncoder; \
 SentenceTransformer('all-MiniLM-L6-v2'); \
 CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
