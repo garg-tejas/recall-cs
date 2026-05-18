@@ -23,6 +23,12 @@ interface StreamingMessage {
   chunks: ChunkSummary[]
 }
 
+// Monotonic counter for stable message IDs during a session
+let _msgIdCounter = 0
+function nextMsgId(): number {
+  return ++_msgIdCounter
+}
+
 const SUBJECT_OPTIONS = [
   { value: '', label: 'All subjects' },
   { value: 'os', label: 'Operating Systems' },
@@ -121,9 +127,9 @@ export default function TutorPage() {
     setIsLoading(true)
     setIsStreaming(true)
 
-    // Optimistically add user message
+    // Optimistically add user message with stable ID
     const userMsg: ChatMessageOut = {
-      id: Date.now(),
+      id: nextMsgId(),
       role: 'user',
       content: trimmed,
       citations: [],
@@ -178,7 +184,7 @@ export default function TutorPage() {
       // Move streaming message into messages list
       setMessages((prev) => {
         const assistantMsg: ChatMessageOut = {
-          id: Date.now() + 1,
+          id: nextMsgId(),
           role: 'assistant',
           content: streamMsg.content,
           citations: streamMsg.citations,
@@ -199,7 +205,7 @@ export default function TutorPage() {
   const allMessages = useMemo(() => {
     if (!streamingMsg) return messages
     const assistantMsg: ChatMessageOut = {
-      id: Date.now(),
+      id: nextMsgId(),
       role: 'assistant',
       content: streamingMsg.content,
       citations: streamingMsg.citations,

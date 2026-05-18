@@ -88,10 +88,12 @@ export async function tutorChatStream(
     const lines = buffer.split('\n')
     buffer = lines.pop() || ''
 
-    for (const line of lines) {
+    // FIX: use index-based loop instead of indexOf to avoid off-by-one
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
       if (line.startsWith('event: ')) {
         const event = line.slice(7)
-        const dataLine = lines[lines.indexOf(line) + 1]
+        const dataLine = lines[i + 1]
         if (dataLine?.startsWith('data: ')) {
           const data = dataLine.slice(6)
           if (event === 'token') {

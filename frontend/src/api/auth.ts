@@ -45,3 +45,9 @@ export async function getMe(): Promise<UserOut> {
     method: 'GET',
   })
 }
+
+export async function logout(): Promise<void> {
+  await apiRequest<void>('/auth/logout', {
+    method: 'POST',
+  })
+}

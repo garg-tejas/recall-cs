@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 
 import { useAuth as useClerkAuth } from '@clerk/react'
 
-import { clerkLogin, getMe } from '../api/auth'
+import { clerkLogin, getMe, logout } from '../api/auth'
 import { setAuthFailureHandler, tokenManager } from '../api/client'
 import type { TokenResponse, UserOut } from '../api/types'
 
@@ -53,7 +53,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clerkAuth = useClerkAuth()
   const exchangeAttempted = useRef(false)
 
-  const clearSession = () => {
+  const clearSession = async () => {
+    // Best-effort: tell backend to revoke refresh token
+    try {
+      await logout()
+    } catch {
+      // ignore — local cleanup is the safety net
+    }
     setAccessToken(null)
     setRefreshToken(null)
     setUser(null)
@@ -93,9 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // On auth failure from API client: clear tokens.
   useEffect(() => {
-    setAuthFailureHandler(() => {
-      clearSession()
-    })
+      setAuthFailureHandler(() => {
+        void clearSession()
+      })
   }, [])
 
   // Validate existing tokens by fetching /me whenever accessToken changes.
@@ -121,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         if (cancelled) return
         // Stored token is invalid — clear it.
-        clearSession()
+        void clearSession()
       }
     }
     run()
@@ -163,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Clerk says user is signed out — clear our session too.
         exchangeAttempted.current = false
         if (accessToken) {
-          clearSession()
+          void clearSession()
         } else if (status !== 'unauthenticated') {
           setStatus('unauthenticated')
         }
