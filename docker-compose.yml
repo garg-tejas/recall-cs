@@ -56,8 +56,6 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000
       VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
-    command: >
-      sh -c "pnpm install && pnpm build && serve -s dist -l 5173"
 
 volumes:
   pgdata:

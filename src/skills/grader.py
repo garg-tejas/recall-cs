@@ -9,6 +9,16 @@ from src.llm import create_client
 
 logger = logging.getLogger(__name__)
 
+# Module-level singleton to avoid recreating the LLM client on every call
+_grader_client = None
+
+
+def _get_grader_client():
+    global _grader_client
+    if _grader_client is None:
+        _grader_client = create_client()
+    return _grader_client
+
 
 @dataclass
 class GradeResult:
@@ -206,7 +216,7 @@ def grade_answer(
         atomic_facts=atomic_facts,
     )
 
-    client = create_client()
+    client = _get_grader_client()
     raw = client.generate_single(
         prompt,
         max_tokens=4096,

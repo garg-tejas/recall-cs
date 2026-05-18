@@ -58,7 +58,12 @@ class LLMClient:
                 "API base_url and key required. Set LLM_BASE_URL + LLM_API_KEY (for Z.AI) "
                 "or pass them explicitly."
             )
-        self.client = OpenAI(base_url=self.base_url, api_key=api_key)
+        self.client = OpenAI(
+            base_url=self.base_url,
+            api_key=api_key,
+            timeout=60.0,
+            max_retries=2,
+        )
 
     def generate_single(
         self,
@@ -69,10 +74,11 @@ class LLMClient:
         stop: Optional[List[str]] = None,
         max_retries: int = 3,
         response_format: Optional[dict] = None,
+        timeout: Optional[float] = None,
     ) -> str:
         """Generate text for a single prompt."""
         results = self.generate(
-            [prompt], max_tokens, temperature, top_p, stop, max_retries, response_format
+            [prompt], max_tokens, temperature, top_p, stop, max_retries, response_format, timeout
         )
         return results[0] if results else ""
 
@@ -85,6 +91,7 @@ class LLMClient:
         stop: Optional[List[str]] = None,
         max_retries: int = 3,
         response_format: Optional[dict] = None,
+        timeout: Optional[float] = None,
     ) -> List[str]:
         """Generate text for a batch of prompts with rate limiting."""
         results = []
@@ -107,6 +114,8 @@ class LLMClient:
                     # Z.AI: disable thinking so the model returns directly in content
                     if "z.ai" in self.base_url.lower():
                         create_kw["extra_body"] = {"thinking": {"type": "disabled"}}
+                    if timeout is not None:
+                        create_kw["timeout"] = timeout
 
                     response = self.client.chat.completions.create(**create_kw)
 

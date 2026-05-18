@@ -10,9 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[cpu]"
+# Install uv for fast, reproducible Python dependency resolution
+RUN pip install --no-cache-dir uv
+
+# Copy dependency files and install with lock file for reproducibility
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --extra cpu
 
 # Copy application code
 COPY src/ ./src/
@@ -20,6 +23,9 @@ COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY data/ ./data/
 COPY scripts/ ./scripts/
+
+# Ensure uv's venv binaries are on PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Expose FastAPI port
 EXPOSE 8000

@@ -4,17 +4,35 @@ FastAPI application for the RAG API.
 
 from __future__ import annotations
 
+import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .deps import build_agent_and_chunks, build_tutor_agent
 from .routes import router
 from .quiz_routes import router as quiz_router
 from .tutor_routes import router as tutor_router
 from src.auth.routes import router as auth_router
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
 
 def _get_cors_origins() -> list[str]:
@@ -35,9 +53,21 @@ def _get_cors_origins() -> list[str]:
     return origins
 
 
+limiter = Limiter(key_func=get_remote_address)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load chunks and build agents on startup; clear on shutdown."""
+    # Validate critical env vars early so the app fails fast on misconfiguration
+    from src.llm.client import LLM_BASE_URL, LLM_API_KEY, HF_ROUTER_API_KEY
+    if not LLM_BASE_URL or not LLM_API_KEY:
+        logger.warning(
+            "LLM_BASE_URL or LLM_API_KEY not set. Grading and quiz features may fail."
+        )
+    if not HF_ROUTER_API_KEY:
+        logger.warning("HF_ROUTER_API_KEY not set. Tutor chat will be unavailable.")
+
     agent, retriever, chunks_by_id, chunks_loaded = build_agent_and_chunks()
     app.state.agent = agent
     app.state.retriever = retriever
@@ -46,9 +76,12 @@ async def lifespan(app: FastAPI):
     app.state.sessions = {}
     app.state.quiz_sessions = {}
     app.state.tutor_agent = build_tutor_agent(retriever) if retriever else None
+    # Bounded thread pool for LLM generation to prevent unbounded thread growth
+    app.state.llm_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="llm-")
     yield
     app.state.sessions.clear()
     app.state.quiz_sessions.clear()
+    app.state.llm_executor.shutdown(wait=False)
 
 
 cors_origins = _get_cors_origins()
@@ -59,12 +92,14 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
     allow_credentials=False if cors_origins == ["*"] else True,
 )
 app.include_router(router)

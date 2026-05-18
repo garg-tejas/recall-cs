@@ -339,7 +339,7 @@ async def _stream_tutor_chat(
     # Save user question
     await _save_message(db, conv.id, "user", body.query)
 
-    # Stream generation in a background thread
+    # Stream generation using bounded thread pool
     q: queue.Queue = queue.Queue()
 
     def run_stream():
@@ -349,9 +349,15 @@ async def _stream_tutor_chat(
             q.put(("token", chunk))
         q.put(("done", full))
 
-    thread = threading.Thread(target=run_stream)
-    thread.start()
     loop = asyncio.get_running_loop()
+    executor = getattr(request.app.state, "llm_executor", None)
+    if executor is not None:
+        await loop.run_in_executor(executor, run_stream)
+    else:
+        import threading
+        thread = threading.Thread(target=run_stream)
+        thread.start()
+
     full_text = ""
     while True:
         kind, payload = await loop.run_in_executor(None, q.get)

@@ -7,7 +7,6 @@ from __future__ import annotations
 import asyncio
 import json
 import queue
-import threading
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -45,7 +44,7 @@ def _get_state(request: Request) -> tuple[Any, Any, dict, int]:
     return agent, retriever, chunks_by_id, chunks_loaded
 
 
-def _get_sessions(request: Request) -> dict[str, ConversationMemory]:
+def _get_sessions(request: Request) -> dict[tuple[int, str], ConversationMemory]:
     sessions = getattr(request.app.state, "sessions", None)
     if sessions is None:
         request.app.state.sessions = {}
@@ -76,12 +75,14 @@ async def _stream_chat(
     agent: Any,
     chunks_by_id: dict,
     sessions: dict,
+    user_id: int,
 ):
     conversation_id = body.conversation_id or "default"
-    memory = sessions.get(conversation_id)
+    key = (user_id, conversation_id)
+    memory = sessions.get(key)
     if memory is None:
         memory = ConversationMemory(max_turns=10)
-        sessions[conversation_id] = memory
+        sessions[key] = memory
     history = memory.get_history()
     results, fallback = await asyncio.to_thread(agent.retrieve, body.query, history)
     if fallback is not None:
@@ -98,9 +99,15 @@ async def _stream_chat(
             q.put(("token", chunk))
         q.put(("done", full))
 
-    thread = threading.Thread(target=run_stream)
-    thread.start()
+    executor = getattr(request.app.state, "llm_executor", None)
     loop = asyncio.get_running_loop()
+    if executor is not None:
+        await loop.run_in_executor(executor, run_stream)
+    else:
+        import threading
+        thread = threading.Thread(target=run_stream)
+        thread.start()
+
     full_text = ""
     while True:
         kind, payload = await loop.run_in_executor(None, q.get)
@@ -132,7 +139,7 @@ async def _stream_chat(
 async def chat(
     request: Request,
     body: ChatRequest,
-    _current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> ChatResponse | JSONResponse:
     """Answer a question using the RAG agent (with optional conversation history). Requires auth."""
     agent, _, chunks_by_id, chunks_loaded = _get_state(request)
@@ -143,10 +150,11 @@ async def chat(
         )
     sessions = _get_sessions(request)
     conversation_id = body.conversation_id or "default"
-    memory = sessions.get(conversation_id)
+    key = (current_user.id, conversation_id)
+    memory = sessions.get(key)
     if memory is None:
         memory = ConversationMemory(max_turns=10)
-        sessions[conversation_id] = memory
+        sessions[key] = memory
     history = memory.get_history()
     resp = await asyncio.to_thread(agent.answer, body.query, history)
     memory.add_turn(body.query, resp.answer, resp.sources_used)
@@ -179,7 +187,7 @@ async def chat(
 async def chat_stream(
     request: Request,
     body: ChatRequest,
-    _current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> StreamingResponse | JSONResponse:
     """Stream answer tokens via SSE; final event has citations and chunks_used. Requires auth."""
     agent, _, chunks_by_id, chunks_loaded = _get_state(request)
@@ -190,7 +198,7 @@ async def chat_stream(
         )
     sessions = _get_sessions(request)
     return StreamingResponse(
-        _stream_chat(request, body, agent, chunks_by_id, sessions),
+        _stream_chat(request, body, agent, chunks_by_id, sessions, current_user.id),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -227,11 +235,12 @@ async def search_endpoint(
 @router.delete("/conversation")
 async def clear_conversation(
     request: Request,
-    _current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)],
     conversation_id: str = "default",
 ) -> dict:
     """Clear conversation history for the given conversation_id. Requires auth."""
     sessions = _get_sessions(request)
-    if conversation_id in sessions:
-        sessions[conversation_id].clear()
+    key = (current_user.id, conversation_id)
+    if key in sessions:
+        sessions[key].clear()
     return {"ok": True, "conversation_id": conversation_id}
