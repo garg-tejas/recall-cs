@@ -88,10 +88,11 @@ class QuizSessionStartResponse(BaseModel):
 
 class QuizSessionAnswerRequest(BaseModel):
     card_id: int
-    user_answer: str
+    user_answer: str = Field(..., max_length=4000)
     response_time_ms: Optional[int] = Field(default=None, ge=0)
     action: Optional[str] = Field(
         default=None,
+        max_length=32,
         description="Optional action override. Use 'dont_know' to record a failed recall without LLM grading.",
     )
 

@@ -4,7 +4,10 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError
+# PyJWT exception aliases for backward compat with current catch sites
+from jwt import ExpiredSignatureError, InvalidTokenError
+
+JWTError = InvalidTokenError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

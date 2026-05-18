@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
 from passlib.context import CryptContext
 
 
@@ -77,10 +78,16 @@ def create_access_token(subject: str | int, expires_minutes: Optional[int] = Non
     return _create_token(str(subject), token_type="access", expires_delta=delta)
 
 
-def create_refresh_token(subject: str | int, expires_days: Optional[int] = None, jti: Optional[str] = None) -> str:
-    """Create a long-lived refresh token for a user."""
+def create_refresh_token(subject: str | int, expires_days: Optional[int] = None) -> Tuple[str, str]:
+    """Create a long-lived refresh token for a user.
+    
+    Returns (token, jti) where jti is the unique token identifier used
+    for revocation and rotation.
+    """
+    jti = secrets.token_urlsafe(16)
     delta = timedelta(days=expires_days or REFRESH_TOKEN_EXPIRE_DAYS)
-    return _create_token(str(subject), token_type="refresh", expires_delta=delta, jti=jti)
+    token = _create_token(str(subject), token_type="refresh", expires_delta=delta, jti=jti)
+    return token, jti
 
 
 def decode_token(token: str) -> Dict[str, Any]:
@@ -92,9 +99,11 @@ def decode_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
 
-def create_token_pair(subject: str | int, jti: Optional[str] = None) -> Dict[str, str]:
-    """Convenience helper to create both access and refresh tokens."""
+def create_token_pair(subject: str | int) -> Dict[str, str]:
+    """Convenience helper to create both access and refresh tokens.
+    
+    Returns {"access_token": ..., "refresh_token": ..., "refresh_jti": ...}
+    """
     access = create_access_token(subject)
-    refresh = create_refresh_token(subject, jti=jti)
-    return {"access_token": access, "refresh_token": refresh}
-
+    refresh, refresh_jti = create_refresh_token(subject)
+    return {"access_token": access, "refresh_token": refresh, "refresh_jti": refresh_jti}

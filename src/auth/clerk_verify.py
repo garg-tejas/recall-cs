@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Dict
 
 import httpx
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError as JWTError
+from jwt.algorithms import RSAAlgorithm
 
 CLERK_SECRET_KEY = os.environ.get("CLERK_SECRET_KEY")
 CLERK_JWKS_URL = os.environ.get("CLERK_JWKS_URL", "https://api.clerk.com/v1/jwks")
@@ -50,10 +53,12 @@ async def verify_clerk_session_token(token: str) -> Dict[str, Any]:
     if signing_key is None:
         raise JWTError(f"No matching JWKS key found for kid={kid}")
 
-    # jose's jwt.decode can accept a dict key directly for RS256
+    # Convert JWK dict to an RSA public key for PyJWT
+    public_key = RSAAlgorithm.from_jwk(json.dumps(signing_key))
+
     payload = jwt.decode(
         token,
-        signing_key,
+        public_key,
         algorithms=["RS256"],
         options={"verify_aud": False},
     )

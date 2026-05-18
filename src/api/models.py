@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     """Request body for POST /api/chat."""
 
-    query: str = Field(..., min_length=1, description="User question")
-    conversation_id: Optional[str] = Field(None, description="Session ID for conversation history")
+    query: str = Field(..., min_length=1, max_length=2000, description="User question")
+    conversation_id: Optional[str] = Field(None, max_length=64, description="Session ID for conversation history")
 
 
 class CitationOut(BaseModel):

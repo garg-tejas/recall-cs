@@ -3,7 +3,7 @@ from __future__ import annotations
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,13 +26,16 @@ from .service import (
     verify_password,
 )
 from .dependencies import get_current_active_user
+from src.api.main import limiter
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def signup(
+    request: Request,
     payload: SignupRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
@@ -61,11 +64,15 @@ async def signup(
     await db.refresh(user)
 
     tokens = create_token_pair(user.id)
-    return TokenResponse(**tokens)
+    user.refresh_jti = tokens["refresh_jti"]
+    await db.commit()
+    return TokenResponse(access_token=tokens["access_token"], refresh_token=tokens["refresh_token"])
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     payload: LoginRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
@@ -87,11 +94,15 @@ async def login(
         )
 
     tokens = create_token_pair(user.id)
-    return TokenResponse(**tokens)
+    user.refresh_jti = tokens["refresh_jti"]
+    await db.commit()
+    return TokenResponse(access_token=tokens["access_token"], refresh_token=tokens["refresh_token"])
 
 
 @router.post("/clerk", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def clerk_login(
+    request: Request,
     payload: ClerkLoginRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
@@ -169,11 +180,15 @@ async def clerk_login(
             await db.refresh(user)
 
     tokens = create_token_pair(user.id)
-    return TokenResponse(**tokens)
+    user.refresh_jti = tokens["refresh_jti"]
+    await db.commit()
+    return TokenResponse(access_token=tokens["access_token"], refresh_token=tokens["refresh_token"])
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("20/minute")
 async def refresh_token(
+    request: Request,
     payload: RefreshRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
@@ -194,6 +209,7 @@ async def refresh_token(
         )
 
     sub = token_data.get("sub")
+    token_jti = token_data.get("jti")
     if sub is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -219,8 +235,29 @@ async def refresh_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Validate stored jti — prevents use of revoked or stolen refresh tokens
+    if not user.refresh_jti or user.refresh_jti != token_jti:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token revoked or invalid",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Rotate refresh token on every use
     tokens = create_token_pair(user.id)
-    return TokenResponse(**tokens)
+    user.refresh_jti = tokens["refresh_jti"]
+    await db.commit()
+    return TokenResponse(access_token=tokens["access_token"], refresh_token=tokens["refresh_token"])
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Revoke the current user's refresh token by clearing refresh_jti."""
+    current_user.refresh_jti = None
+    await db.commit()
 
 
 @router.get("/me", response_model=UserOut)

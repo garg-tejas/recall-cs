@@ -41,9 +41,12 @@ class User(Base):
         Text, nullable=True
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    refresh_jti: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, index=True
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -102,7 +105,7 @@ class Card(Base):
 
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -175,7 +178,7 @@ class ReviewAttempt(Base):
 
     attempted_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     quality: Mapped[int] = mapped_column(Integer, nullable=False)  # 0-5
@@ -209,13 +212,13 @@ class TopicTaxonomyNode(Base):
     metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
-        onupdate=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
+        onupdate=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -244,13 +247,13 @@ class TopicPrerequisite(Base):
     evidence_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
-        onupdate=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
+        onupdate=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -282,13 +285,13 @@ class UserTopicMastery(Base):
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
-        onupdate=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
+        onupdate=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -318,13 +321,13 @@ class UserTopicSWOT(Base):
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
-        onupdate=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
+        onupdate=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -346,7 +349,7 @@ class DocumentChunk(Base):
     embedding_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -365,13 +368,13 @@ class Conversation(Base):
     topic_key: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
-        onupdate=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
+        onupdate=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
@@ -398,7 +401,7 @@ class ChatMessage(Base):
     chunks_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
-        default=dt.datetime.utcnow,
+        default=lambda: dt.datetime.now(dt.timezone.utc),
         nullable=False,
     )
 
