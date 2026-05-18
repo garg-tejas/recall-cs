@@ -116,3 +116,62 @@ export interface TopicStats {
 export interface QuizStatsResponse {
   topics: TopicStats[]
 }
+
+// Tutor types
+export interface CitationOut {
+  index: number
+  chunk_id: string
+  snippet: string
+}
+
+export interface ChunkSummary {
+  id: string
+  header_path: string
+  snippet: string
+}
+
+export interface TutorChatRequest {
+  query: string
+  conversation_id?: number | null
+  subject?: string | null
+}
+
+export interface TutorChatResponse {
+  answer: string
+  citations: CitationOut[]
+  chunks_used: ChunkSummary[]
+  conversation_id: number
+}
+
+export interface ChatMessageOut {
+  id: number
+  role: string
+  content: string
+  citations: CitationOut[]
+  chunks: ChunkSummary[]
+  created_at: string
+}
+
+export interface ConversationOut {
+  id: number
+  title: string | null
+  subject: string | null
+  topic_key: string | null
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+export interface ConversationDetailOut extends ConversationOut {
+  messages: ChatMessageOut[]
+}
+
+export interface ConversationListResponse {
+  conversations: ConversationOut[]
+}
+
+export interface CreateConversationRequest {
+  title?: string | null
+  subject?: string | null
+  topic_key?: string | null
+}

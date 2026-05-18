@@ -10,9 +10,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .deps import build_agent_and_chunks
+from .deps import build_agent_and_chunks, build_tutor_agent
 from .routes import router
 from .quiz_routes import router as quiz_router
+from .tutor_routes import router as tutor_router
 from src.auth.routes import router as auth_router
 
 
@@ -36,7 +37,7 @@ def _get_cors_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load chunks and build agent on startup; clear on shutdown."""
+    """Load chunks and build agents on startup; clear on shutdown."""
     agent, retriever, chunks_by_id, chunks_loaded = build_agent_and_chunks()
     app.state.agent = agent
     app.state.retriever = retriever
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
     app.state.chunks_loaded = chunks_loaded
     app.state.sessions = {}
     app.state.quiz_sessions = {}
+    app.state.tutor_agent = build_tutor_agent(retriever) if retriever else None
     yield
     app.state.sessions.clear()
     app.state.quiz_sessions.clear()
@@ -68,3 +70,4 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(quiz_router)
+app.include_router(tutor_router)

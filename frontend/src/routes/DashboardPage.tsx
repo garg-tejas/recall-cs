@@ -214,6 +214,9 @@ export default function DashboardPage() {
             <Button type="button" variant="secondary" onClick={previewLearningPath}>
               Preview learning path
             </Button>
+            <Button type="button" variant="ghost" onClick={() => navigate('/tutor')}>
+              AI Tutor
+            </Button>
             <p className="dashboard-hero__hint">{selectionSummary}</p>
           </div>
         </Card>
