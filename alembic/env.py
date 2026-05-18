@@ -1,13 +1,8 @@
 from logging.config import fileConfig
 import asyncio
 
-from dotenv import load_dotenv
-from pathlib import Path
-
 # Load .env before any src imports that read environment variables
-_env_path = Path(__file__).resolve().parents[1] / ".env"
-if _env_path.exists():
-    load_dotenv(_env_path, override=False)
+import src.config  # noqa: F401,E402
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config

@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from dotenv import find_dotenv, load_dotenv
 
-from dotenv import load_dotenv
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENV_PATH = PROJECT_ROOT / ".env"
-
-if ENV_PATH.exists():
-    load_dotenv(ENV_PATH, override=False)
+# find_dotenv() walks up the directory tree looking for .env,
+# so it works regardless of which file imports this module.
+load_dotenv(find_dotenv(), override=False)
