@@ -14,6 +14,12 @@ export interface LoginRequest {
   password: string
 }
 
+export interface ClerkLoginRequest {
+  clerk_user_id: string
+  email: string
+  username: string
+}
+
 export interface RefreshRequest {
   refresh_token: string
 }

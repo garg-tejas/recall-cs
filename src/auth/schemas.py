@@ -16,6 +16,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ClerkLoginRequest(BaseModel):
+    clerk_user_id: str
+    email: EmailStr
+    username: str
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -31,4 +37,3 @@ class UserOut(BaseModel):
     email: EmailStr
     username: str
     is_active: bool = True
-

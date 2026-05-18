@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
+import { UserButton, useAuth as useClerkAuth } from '@clerk/react'
 
 import { cx } from '../ui/cx'
 
@@ -19,6 +20,7 @@ export default function AppShell({
 }: AppShellProps) {
   const location = useLocation()
   const breadcrumb = resolveBreadcrumbLabel(location.pathname)
+  const clerkAuth = useClerkAuth()
 
   return (
     <div className={cx('app-shell', `app-shell--${mode}`)}>
@@ -33,6 +35,11 @@ export default function AppShell({
           <p className="app-shell__crumb" aria-live="polite">
             {breadcrumb}
           </p>
+          {clerkAuth.isSignedIn ? (
+            <div className="app-shell__user">
+              <UserButton />
+            </div>
+          ) : null}
         </header>
       ) : null}
       <main className={cx('app-shell__content', `app-shell__content--${width}`)}>
@@ -52,6 +59,7 @@ function resolveBreadcrumbLabel(pathname: string): string {
     '/review/summary': 'Session Summary',
     '/login': 'Login',
     '/signup': 'Signup',
+    '/tutor': 'AI Tutor',
   }
 
   if (labelByPathname[pathname]) return labelByPathname[pathname]

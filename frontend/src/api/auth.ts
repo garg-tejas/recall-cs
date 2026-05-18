@@ -4,6 +4,7 @@
 
 import { apiRequest } from './client'
 import type {
+  ClerkLoginRequest,
   SignupRequest,
   LoginRequest,
   RefreshRequest,
@@ -20,6 +21,13 @@ export async function signup(data: SignupRequest): Promise<TokenResponse> {
 
 export async function login(data: LoginRequest): Promise<TokenResponse> {
   return apiRequest<TokenResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function clerkLogin(data: ClerkLoginRequest): Promise<TokenResponse> {
+  return apiRequest<TokenResponse>('/auth/clerk', {
     method: 'POST',
     body: JSON.stringify(data),
   })

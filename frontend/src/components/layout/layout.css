@@ -116,6 +116,12 @@
   color: var(--text-muted);
 }
 
+.app-shell__user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
 .app-shell__content {
   width: min(100%, calc(100vw - (var(--space-5) * 2)));
   margin: 0 auto;

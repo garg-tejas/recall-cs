@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getMe } from '../api/auth'
+import { useAuth as useClerkAuth, useUser as useClerkUser } from '@clerk/react'
+
+import { clerkLogin, getMe } from '../api/auth'
 import { setAuthFailureHandler, tokenManager } from '../api/client'
 import type { TokenResponse, UserOut } from '../api/types'
 
@@ -48,6 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserOut | null>(null)
   const [status, setStatus] = useState<AuthStatus>('unknown')
 
+  const clerkAuth = useClerkAuth()
+  const clerkUser = useClerkUser()
+  const exchangeAttempted = useRef(false)
+
   const clearSession = () => {
     setAccessToken(null)
     setRefreshToken(null)
@@ -81,10 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (accessToken && refreshToken) {
       tokenManager.setTokens(accessToken, refreshToken)
-      setStatus('authenticated')
     } else {
       tokenManager.clear()
-      setStatus('unauthenticated')
     }
   }, [accessToken, refreshToken])
 
@@ -95,11 +99,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  // Best-effort: fetch /me once we have an access token.
+  // Validate existing tokens by fetching /me whenever accessToken changes.
   useEffect(() => {
     let cancelled = false
     const run = async () => {
-      if (!accessToken) return
+      if (!accessToken) {
+        if (!cancelled) {
+          setUser(null)
+          // Only mark unauthenticated if Clerk has finished loading and user is not signed in.
+          if (clerkAuth.isLoaded && !clerkAuth.isSignedIn) {
+            setStatus('unauthenticated')
+          }
+        }
+        return
+      }
+      tokenManager.setTokens(accessToken, refreshToken || '')
       try {
         const me = await getMe()
         if (cancelled) return
@@ -107,9 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setStatus('authenticated')
       } catch {
         if (cancelled) return
-        // If /me fails, we’ll treat it as unauthenticated; the API client may refresh later.
-        setUser(null)
-        setStatus('unauthenticated')
+        // Stored token is invalid — clear it.
+        clearSession()
       }
     }
     run()
@@ -117,6 +130,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true
     }
   }, [accessToken])
+
+  // Sync Clerk sign-in state with our backend tokens.
+  useEffect(() => {
+    let cancelled = false
+
+    const run = async () => {
+      if (!clerkAuth.isLoaded) return
+
+      if (clerkAuth.isSignedIn) {
+        // If we already have backend tokens, nothing to do.
+        if (accessToken) return
+
+        // Avoid duplicate exchange attempts.
+        if (exchangeAttempted.current) return
+        exchangeAttempted.current = true
+
+        const email = clerkUser.user?.primaryEmailAddress?.emailAddress
+        const username = clerkUser.user?.username || email?.split('@')[0] || 'user'
+        const clerkUserId = clerkUser.user?.id
+
+        if (!email || !clerkUserId) {
+          if (!cancelled) setStatus('unauthenticated')
+          return
+        }
+
+        try {
+          const tokens = await clerkLogin({
+            clerk_user_id: clerkUserId,
+            email,
+            username,
+          })
+          if (cancelled) return
+          setTokenPair(tokens)
+          // /me will be fetched by the accessToken effect above.
+        } catch {
+          if (cancelled) return
+          setStatus('unauthenticated')
+        }
+      } else {
+        // Clerk says user is signed out — clear our session too.
+        exchangeAttempted.current = false
+        if (accessToken) {
+          clearSession()
+        } else if (status !== 'unauthenticated') {
+          setStatus('unauthenticated')
+        }
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [clerkAuth.isLoaded, clerkAuth.isSignedIn, accessToken])
 
   const value = useMemo<AuthContextValue>(
     () => ({

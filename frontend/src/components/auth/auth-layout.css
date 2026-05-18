@@ -225,6 +225,18 @@
   line-height: 1.5;
 }
 
+/* Clerk component containers */
+.clerk-signin-container,
+.clerk-signup-container {
+  display: flex;
+  justify-content: center;
+}
+
+.clerk-signin-container > div,
+.clerk-signup-container > div {
+  width: 100%;
+}
+
 @keyframes auth-brand-drift-a {
   0%,
   100% {
