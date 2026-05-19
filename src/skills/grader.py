@@ -9,15 +9,8 @@ from src.llm import create_client
 
 logger = logging.getLogger(__name__)
 
-# Module-level singleton to avoid recreating the LLM client on every call
-_grader_client = None
-
-
 def _get_grader_client():
-    global _grader_client
-    if _grader_client is None:
-        _grader_client = create_client()
-    return _grader_client
+    return create_client()
 
 
 @dataclass
