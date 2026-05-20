@@ -1,5 +1,14 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/__clerk/(.*)",
+      "destination": "https://clerk.synthetix-cs.vercel.app/__clerk/$1"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
