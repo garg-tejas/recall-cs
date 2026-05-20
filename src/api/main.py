@@ -39,6 +39,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "max-age=31536000; includeSubDomains"
         )
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "style-src 'self' 'unsafe-inline' https://api.fontshare.com https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com https://api.fontshare.com; "
+            "script-src 'self' 'unsafe-inline'; "
+            "frame-ancestors 'none';"
+        )
         return response
 
 

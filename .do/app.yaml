@@ -20,7 +20,7 @@ services:
     instance_count: 1
     instance_size_slug: basic-xxs
     health_check:
-      http_path: /api/readyz
+      http_path: /api/health
       port: 8000
       initial_delay_seconds: 30
       period_seconds: 20
