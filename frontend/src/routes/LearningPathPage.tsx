@@ -72,15 +72,8 @@ function graphStatusTone(
 function graphStatusLabel(status: GraphNodeStatus): string {
   if (status === 'completed') return 'completed'
   if (status === 'current') return 'current'
-  if (status === 'unlocked') return 'unlocked'
+  if (status === 'unlocked') return 'ready'
   return 'locked'
-}
-
-function graphStatusGlyph(status: GraphNodeStatus): string {
-  if (status === 'completed') return 'C'
-  if (status === 'current') return 'N'
-  if (status === 'unlocked') return 'U'
-  return 'L'
 }
 
 function swotTone(bucket: SWOTBucket): 'neutral' | 'info' | 'success' | 'warning' | 'danger' {
@@ -148,16 +141,29 @@ function PathGraph({
     return { height, paths }
   }, [stageNodes])
 
+  const completedIndex = useMemo(() => {
+    for (let index = stageNodes.length - 1; index >= 0; index -= 1) {
+      if (stageNodes[index].status === 'completed') return index
+    }
+    return -1
+  }, [stageNodes])
+
   const graphStyle = useMemo(
     () =>
       ({
         '--graph-row-count': String(Math.max(stageNodes.length, 1)),
+        '--graph-progress': String(
+          stageNodes.length > 1
+            ? Math.max(0, Math.min(1, completedIndex / (stageNodes.length - 1)))
+            : 0,
+        ),
       }) as CSSProperties,
-    [stageNodes.length],
+    [completedIndex, stageNodes.length],
   )
 
   return (
     <div className="learning-path__graph" style={graphStyle}>
+      <div className="learning-path__graph-atmosphere" aria-hidden="true" />
       <svg
         className="learning-path__graph-connectors"
         viewBox={`0 0 100 ${connectors.height}`}
@@ -168,6 +174,7 @@ function PathGraph({
           <path
             key={connector.key}
             d={connector.d}
+            pathLength={1}
             className={`learning-path__graph-connector learning-path__graph-connector--${connector.tone}`}
           />
         ))}
@@ -189,6 +196,7 @@ function PathGraph({
             unresolvedLabels.length > 0
               ? `Requires: ${unresolvedLabels.join(', ')}`
               : undefined
+          const bucket = normalizeBucket(stage.node.swot_bucket)
           const cardClassName = [
             'learning-path__graph-card',
             `learning-path__graph-card--${graphStatus}`,
@@ -200,13 +208,20 @@ function PathGraph({
           const cardBody = (
             <>
               <div className="learning-path__graph-card-head">
-                <strong>{stage.node.display_name}</strong>
+                <div>
+                  <span className="learning-path__step-kicker">Step {stage.index + 1}</span>
+                  <strong>{stage.node.display_name}</strong>
+                </div>
                 <Badge tone={graphStatusTone(graphStatus)}>{graphStatusLabel(graphStatus)}</Badge>
               </div>
-              <p className="learning-path__graph-meta">
-                {stage.node.subject.toUpperCase()} | mastery {Math.round(stage.node.mastery_score)}
-                {' '}| priority {stage.node.priority_score.toFixed(1)}
-              </p>
+              <div className="learning-path__graph-meta">
+                <span>{stage.node.subject.toUpperCase()}</span>
+                <span>Mastery {Math.round(stage.node.mastery_score)}</span>
+                <span>Priority {stage.node.priority_score.toFixed(1)}</span>
+                <span className={`learning-path__bucket learning-path__bucket--${bucket}`}>
+                  {bucket}
+                </span>
+              </div>
               {prerequisiteLabels.length > 0 ? (
                 <p className="learning-path__prereq-note">Requires: {prerequisiteLabels.join(', ')}</p>
               ) : null}
@@ -216,7 +231,7 @@ function PathGraph({
                 </p>
               ) : null}
               {isActionable ? (
-                <p className="learning-path__attempt-note">Click to start review from this node.</p>
+                <p className="learning-path__attempt-note">Start review from this node</p>
               ) : null}
             </>
           )
@@ -234,9 +249,9 @@ function PathGraph({
               <div
                 className={`learning-path__graph-node learning-path__graph-node--${graphStatus}`}
                 title={isLocked ? lockHintText : undefined}
-                aria-label={`${stage.node.display_name} ${graphStatusLabel(graphStatus)} node`}
+                aria-label={`Step ${stage.index + 1}: ${stage.node.display_name} ${graphStatusLabel(graphStatus)} node`}
               >
-                <span>{graphStatusGlyph(graphStatus)}</span>
+                <span>{stage.index + 1}</span>
               </div>
 
               {isActionable ? (
@@ -348,6 +363,15 @@ export default function LearningPathPage() {
     () => stageNodes.find((entry) => entry.status === 'current') ?? null,
     [stageNodes],
   )
+
+  const pathSummary = useMemo(() => {
+    const completed = stageNodes.filter((stage) => stage.status === 'completed').length
+    const ready = stageNodes.filter((stage) => stage.status === 'upcoming').length
+    const locked = stageNodes.filter((stage) => stage.status === 'locked').length
+    const progressPercent =
+      stageNodes.length > 0 ? Math.round((completed / stageNodes.length) * 100) : 0
+    return { completed, ready, locked, progressPercent }
+  }, [stageNodes])
 
   const subjectSummaries = useMemo<SubjectSWOTSummary[]>(() => {
     const bySubject = new Map<string, SubjectSWOTSummary>()
@@ -510,20 +534,50 @@ export default function LearningPathPage() {
                 ) : undefined
               }
             >
+              <div className="learning-path__focus-orbit" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
               <div className="learning-path__focus-metrics">
                 <article>
-                  <span>Queue length</span>
+                  <span>Progress</span>
+                  <strong>{pathSummary.progressPercent}%</strong>
+                </article>
+                <article>
+                  <span>Ready next</span>
+                  <strong>{pathSummary.ready}</strong>
+                </article>
+                <article>
+                  <span>Locked</span>
+                  <strong>{pathSummary.locked}</strong>
+                </article>
+              </div>
+              <div className="learning-path__focus-metrics learning-path__focus-metrics--secondary">
+                <article>
+                  <span>Queue</span>
                   <strong>{pathNodes.length}</strong>
                 </article>
                 <article>
-                  <span>Session limit</span>
+                  <span>Limit</span>
                   <strong>{nextScopeState.limit}</strong>
                 </article>
                 <article>
-                  <span>Preview question</span>
+                  <span>Question</span>
                   <strong>{currentCard ? 'ready' : 'none'}</strong>
                 </article>
               </div>
+              {currentNode ? (
+                <div className="learning-path__focus-action">
+                  <p>
+                    Start here to keep the review session aligned with prerequisite order and
+                    current weakness signals.
+                  </p>
+                  <Button type="button" onClick={() => launchNodeReview(currentNode)}>
+                    Review current node
+                  </Button>
+                </div>
+              ) : null}
             </Card>
 
             <Card
@@ -531,14 +585,17 @@ export default function LearningPathPage() {
               padding="lg"
               className="learning-path__sequence"
               kicker="Path sequence"
-              title="Node graph"
-              subtitle="Unlocked nodes are interactive. Locked nodes show unmet prerequisites."
+              title="Adaptive route"
+              subtitle="Follow the lit rail. Ready nodes can start a focused review; locked nodes expose unmet prerequisites."
             >
-              <div className="learning-path__graph-legend" aria-hidden="true">
-                <Badge tone="success">completed</Badge>
-                <Badge tone="info">current</Badge>
-                <Badge tone="warning">unlocked</Badge>
-                <Badge tone="neutral">locked</Badge>
+              <div className="learning-path__sequence-toolbar">
+                <div className="learning-path__graph-legend" aria-hidden="true">
+                  <Badge tone="success">completed</Badge>
+                  <Badge tone="info">current</Badge>
+                  <Badge tone="warning">ready</Badge>
+                  <Badge tone="neutral">locked</Badge>
+                </div>
+                <span>{pathSummary.completed}/{pathNodes.length} completed</span>
               </div>
               <PathGraph
                 stageNodes={stageNodes}
