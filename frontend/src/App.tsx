@@ -1,17 +1,18 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { SignIn, SignUp } from "@clerk/react";
 
-import { AuthProvider } from './auth/AuthContext'
-import AppShell from './components/layout/AppShell'
-import DashboardPage from './routes/DashboardPage'
-import LandingPage from './routes/LandingPage'
-import ReviewPage from './routes/ReviewPage'
-import LearningPathPage from './routes/LearningPathPage'
-import ReviewSetupPage from './routes/ReviewSetupPage'
-import ReviewSummaryPage from './routes/ReviewSummaryPage'
-import TutorPage from './routes/TutorPage'
-import LoginPage from './routes/LoginPage'
-import SignupPage from './routes/SignupPage'
-import ProtectedRoute from './routes/ProtectedRoute'
+import { AuthProvider } from "./auth/AuthContext";
+import AppShell from "./components/layout/AppShell";
+import DashboardPage from "./routes/DashboardPage";
+import LandingPage from "./routes/LandingPage";
+import ReviewPage from "./routes/ReviewPage";
+import LearningPathPage from "./routes/LearningPathPage";
+import ReviewSetupPage from "./routes/ReviewSetupPage";
+import ReviewSummaryPage from "./routes/ReviewSummaryPage";
+import TutorPage from "./routes/TutorPage";
+import LoginPage from "./routes/LoginPage";
+import SignupPage from "./routes/SignupPage";
+import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
   return (
@@ -33,7 +34,15 @@ function App() {
           </Route>
           <Route element={<AppShell mode="auth" width="content" />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/login/sso-callback"
+              element={<SignIn routing="path" path="/login" />}
+            />
             <Route path="/signup" element={<SignupPage />} />
+            <Route
+              path="/signup/sso-callback"
+              element={<SignUp routing="path" path="/signup" />}
+            />
           </Route>
           <Route element={<AppShell mode="plain" width="narrow" />}>
             <Route
@@ -49,7 +58,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
-  )
+  );
 }
 
-export default App
+export default App;
