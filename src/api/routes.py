@@ -93,7 +93,7 @@ async def health(request: Request) -> HealthResponse:
     return HealthResponse(status="ok", chunks_loaded=chunks_loaded)
 
 
-@router.get("/readyz")
+@router.get("/readyz", response_model=None)
 async def readyz(request: Request) -> dict | JSONResponse:
     """Readiness probe — checks chunks loaded and basic app state."""
     agent, retriever, _, chunks_loaded = _get_state(request)

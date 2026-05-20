@@ -2,20 +2,19 @@
 
 FROM python:3.12-slim
 
-WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-# Install system deps (for sentence-transformers, asyncpg, etc.)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
 # Install uv for fast, reproducible Python dependency resolution
 RUN pip install --no-cache-dir uv
 
 # Copy dependency files and install with lock file for reproducibility
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --extra cpu --no-dev
+RUN uv sync --frozen --extra cpu --no-dev --no-cache
 
 # Copy application code
 COPY src/ ./src/
@@ -28,9 +27,9 @@ COPY scripts/ ./scripts/
 # Ensure uv's venv binaries are on PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Expose FastAPI port
+# App Platform can inject PORT; entrypoint defaults to 8000 locally.
 EXPOSE 8000
 
-# Run migrations then start server via entrypoint script
-RUN chmod +x entrypoint.sh
-CMD ["./entrypoint.sh"]
+# Run migrations then start server via entrypoint script.
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
+CMD ["sh", "./entrypoint.sh"]

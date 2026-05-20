@@ -13,6 +13,7 @@ from .bm25 import BM25Index
 from .config import RAGConfig
 from .context_window import build_book_index, expand_with_neighbors
 from .dense import DenseIndex
+from .pgvector_dense import PgVectorDenseIndex
 from .hyde import HydeGenerator
 from .index import ChunkRecord
 from .query_rewriter import QueryRewriter
@@ -66,7 +67,17 @@ class HybridSearcher:
             config.use_hyde = use_hyde
 
         bm25 = BM25Index.from_chunks(chunks)
-        dense = DenseIndex.from_chunks(chunks)
+        if config.use_pgvector:
+            try:
+                dense = PgVectorDenseIndex.from_chunks(chunks)
+                logger.info("Using PostgreSQL pgvector dense retrieval")
+            except Exception as e:
+                if config.require_pgvector:
+                    raise RuntimeError("pgvector dense retrieval is required but unavailable") from e
+                logger.warning("pgvector dense retrieval unavailable; using local dense index: %s", e)
+                dense = DenseIndex.from_chunks(chunks)
+        else:
+            dense = DenseIndex.from_chunks(chunks)
         reranker = CrossEncoderReranker() if config.use_reranker else None
         stored_chunks = chunks if use_context_expansion else None
         rewriter = QueryRewriter() if config.use_query_rewriting else None

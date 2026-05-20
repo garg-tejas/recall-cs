@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 
 class Base(DeclarativeBase):
@@ -333,7 +334,7 @@ class UserTopicSWOT(Base):
 
 
 class DocumentChunk(Base):
-    """A persisted textbook chunk with optional pgvector embedding."""
+    """A persisted textbook chunk with native pgvector embedding."""
 
     __tablename__ = "document_chunks"
 
@@ -345,7 +346,9 @@ class DocumentChunk(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     potential_questions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     subject: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
-    # embedding vector is managed separately (pgvector) via raw SQL or pgvector lib
+    embedding_vector: Mapped[Optional[list[float]]] = mapped_column(Vector(384), nullable=True)
+    embedding_model: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    embedding_content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     embedding_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
