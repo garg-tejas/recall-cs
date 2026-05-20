@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.accounts.dev https://js.clerk.dev; style-src 'self' 'unsafe-inline' https://api.fontshare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://api.fontshare.com; connect-src 'self' https://*.clerk.accounts.dev https://clerk.accounts.dev https://api.clerk.com %VITE_API_URL%; img-src 'self' data: https:; frame-ancestors 'none'; base-uri 'self'; object-src 'none';"
+        }
+      ]
+    }
+  ]
+}
