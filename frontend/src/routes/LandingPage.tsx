@@ -5,11 +5,13 @@ import { useAuth } from '../auth/AuthContext'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './landing.css'
 
 interface LandingStep {
   title: string
   detail: string
+  icon: string
 }
 
 interface LandingCta {
@@ -23,20 +25,24 @@ interface LandingCta {
 
 const workflowSteps: LandingStep[] = [
   {
+    icon: '⊹',
     title: 'Capture weak spots',
     detail: 'Spin up a focused card set by topic so each session attacks what is slipping now.',
   },
   {
+    icon: '◎',
     title: 'Get instant feedback',
     detail: 'Score quality, see concise guidance, and close each card with a clear next action.',
   },
   {
+    icon: '⟳',
     title: 'Lock retention rhythm',
     detail: 'Track due and overdue load so daily review stays short, consistent, and compounding.',
   },
 ]
 
 export default function LandingPage() {
+  usePageTitle('')
   const { status, user } = useAuth()
   const navigate = useNavigate()
 
@@ -71,7 +77,7 @@ export default function LandingPage() {
         <header className="landing-hero__topbar">
           <p className="landing-hero__mode">
             <span className="landing-hero__brand-mark" aria-hidden="true" />
-            Quiet Signal workflow
+            Recall.cs workflow
           </p>
           <div className="landing-hero__topbar-actions">
             <Badge tone={status === 'authenticated' ? 'success' : 'info'}>
@@ -89,7 +95,7 @@ export default function LandingPage() {
               Give your study loop a control room with clear next moves.
             </h1>
             <p className="landing-hero__subtitle">
-              Signal Lab helps you review what matters now, score every response, and keep
+              Recall.cs helps you review what matters now, score every response, and keep
               retention climbing with short daily sprints.
             </p>
 
@@ -116,43 +122,52 @@ export default function LandingPage() {
             </ul>
           </div>
 
-          <Card
-            tone="accent"
-            padding="lg"
-            className="landing-hero__panel"
-            kicker="Session blueprint"
-            title="From prompt to retention in one flow"
-            subtitle="Built to keep your queue clean without long study marathons."
-          >
-            <div className="landing-hero__panel-stats" role="list" aria-label="Core outcomes">
-              <div role="listitem">
-                <span>Focus</span>
-                <strong>Topic-level filtering</strong>
-              </div>
-              <div role="listitem">
-                <span>Feedback</span>
-                <strong>Answer quality signal</strong>
-              </div>
-              <div role="listitem">
-                <span>Rhythm</span>
-                <strong>Due queue visibility</strong>
-              </div>
+          <div className="landing-hero__preview" aria-label="Product preview">
+            <div className="landing-hero__preview-topbar">
+              <span className="landing-hero__preview-pill">OS · Memory Management</span>
+              <span className="landing-hero__preview-count">Card 3 / 12</span>
             </div>
-          </Card>
+            <div className="landing-hero__preview-question">
+              <p className="landing-hero__preview-label">Question</p>
+              <p className="landing-hero__preview-text">
+                Explain the difference between internal and external fragmentation. Which does paging solve?
+              </p>
+            </div>
+            <div className="landing-hero__preview-answer">
+              <p className="landing-hero__preview-label">Answer</p>
+              <p className="landing-hero__preview-text landing-hero__preview-text--muted">
+                Internal fragmentation is wasted space inside allocated blocks. External is free space scattered in unusable chunks. Paging eliminates external fragmentation by using fixed-size frames.
+              </p>
+            </div>
+            <div className="landing-hero__preview-feedback">
+              <div className="landing-hero__preview-score">
+                <span className="landing-hero__preview-score-value">4</span>
+                <span className="landing-hero__preview-score-max">/ 5</span>
+                <span className="landing-hero__preview-score-label">Good recall</span>
+              </div>
+              <p className="landing-hero__preview-hint">
+                Mention that paging introduces internal fragmentation in the last frame.
+              </p>
+            </div>
+            <div className="landing-hero__preview-actions">
+              <span className="landing-hero__preview-btn">Next card →</span>
+              <span className="landing-hero__preview-meta">Due again in 4 days</span>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="landing-workflow" aria-label="How it works">
         {workflowSteps.map((step, index) => (
-          <Card
+          <div
             key={step.title}
-            className="landing-workflow__card"
-            tone={index === 1 ? 'accent' : 'default'}
-            padding="md"
-            kicker={`Step ${index + 1}`}
-            title={step.title}
-            subtitle={step.detail}
-          />
+            className={`landing-workflow__card landing-workflow__card--${index}`}
+          >
+            <div className="landing-workflow__icon" aria-hidden="true">{step.icon}</div>
+            <p className="landing-workflow__kicker">Step {index + 1}</p>
+            <h3 className="landing-workflow__title">{step.title}</h3>
+            <p className="landing-workflow__detail">{step.detail}</p>
+          </div>
         ))}
       </section>
 

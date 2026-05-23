@@ -435,7 +435,97 @@
 
 .dashboard-empty-state {
   display: grid;
+  gap: var(--space-5);
+  place-items: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px dashed rgba(126, 157, 181, 0.24);
+  background: rgba(10, 20, 35, 0.5);
+  animation: motion-rise-fade var(--motion-slow) var(--ease-standard) both;
+}
+
+.dashboard-empty-state__illustration {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+  display: grid;
+  place-items: center;
+}
+
+.dashboard-empty-state__glyph {
+  position: relative;
+  z-index: 1;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--accent-primary);
+  opacity: 0.7;
+}
+
+.dashboard-empty-state__rings {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.dashboard-empty-state__rings span {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(57, 212, 199, 0.18);
+  animation: empty-state-pulse 3s ease-in-out infinite;
+}
+
+.dashboard-empty-state__rings span:nth-child(1) {
+  width: 3.5rem;
+  height: 3.5rem;
+  animation-delay: 0ms;
+}
+
+.dashboard-empty-state__rings span:nth-child(2) {
+  width: 5rem;
+  height: 5rem;
+  animation-delay: 400ms;
+  border-color: rgba(57, 212, 199, 0.1);
+}
+
+.dashboard-empty-state__rings span:nth-child(3) {
+  width: 6.5rem;
+  height: 6.5rem;
+  animation-delay: 800ms;
+  border-color: rgba(57, 212, 199, 0.06);
+}
+
+@keyframes empty-state-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.06); opacity: 0.6; }
+}
+
+.dashboard-empty-state__copy {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 42ch;
+}
+
+.dashboard-empty-state__title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-strong);
+}
+
+.dashboard-empty-state__detail {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.dashboard-empty-state__actions {
+  display: flex;
+  align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .dashboard-topic-grid {

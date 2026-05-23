@@ -19,6 +19,7 @@ import ProgressBar from '../components/ui/ProgressBar'
 import StateMessage from '../components/ui/StateMessage'
 import Textarea from '../components/ui/Textarea'
 import type { ReviewSessionScopeState, ReviewSummaryState } from './reviewFlow'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './review.css'
 
 type VerdictBucket = 'correct' | 'partially_correct' | 'incorrect'
@@ -115,6 +116,7 @@ function resolvePathTopicIndex(currentTopic: string, orderedPathTopics: string[]
 }
 
 export default function ReviewPage() {
+  usePageTitle('Review')
   const navigate = useNavigate()
   const location = useLocation()
   const routeState = (location.state as ReviewSessionScopeState | null) ?? null

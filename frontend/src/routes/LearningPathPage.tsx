@@ -10,6 +10,7 @@ import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import StateMessage from '../components/ui/StateMessage'
 import type { ReviewSessionScopeState } from './reviewFlow'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './learning-path.css'
 
 type SWOTBucket = 'strength' | 'weakness' | 'opportunity' | 'threat'
@@ -276,6 +277,7 @@ function PathGraph({
 }
 
 export default function LearningPathPage() {
+  usePageTitle('Learning Path')
   const location = useLocation()
   const navigate = useNavigate()
   const routeState = (location.state as ReviewSessionScopeState | null) ?? null

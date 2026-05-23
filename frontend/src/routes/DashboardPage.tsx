@@ -12,6 +12,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import StateMessage from '../components/ui/StateMessage'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './dashboard.css'
 
 interface MissionState {
@@ -22,6 +23,7 @@ interface MissionState {
 }
 
 export default function DashboardPage() {
+  usePageTitle('Dashboard')
   const { user, clearSession } = useAuth()
   const navigate = useNavigate()
 
@@ -345,20 +347,40 @@ export default function DashboardPage() {
         ) : null}
 
         {!error && topics.length === 0 ? (
-          <Card tone="inset" padding="md" className="dashboard-empty-state">
-            <StateMessage title="No topics available yet" tone="warning">
-              Seed cards first to populate your review workspace.
-            </StateMessage>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => void loadDashboard()}
-              disabled={isRefreshing}
-            >
-              Reload dashboard
-            </Button>
-          </Card>
+          <div className="dashboard-empty-state">
+            <div className="dashboard-empty-state__illustration" aria-hidden="true">
+              <span className="dashboard-empty-state__glyph">◎</span>
+              <div className="dashboard-empty-state__rings">
+                <span /><span /><span />
+              </div>
+            </div>
+            <div className="dashboard-empty-state__copy">
+              <h3 className="dashboard-empty-state__title">Your review queue is empty</h3>
+              <p className="dashboard-empty-state__detail">
+                No cards have been loaded yet. Once the backend finishes seeding, your topics,
+                due cards, and progress will appear here.
+              </p>
+            </div>
+            <div className="dashboard-empty-state__actions">
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={() => navigate('/review/setup')}
+              >
+                Start your first review
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={() => void loadDashboard()}
+                disabled={isRefreshing}
+              >
+                Refresh
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {topics.length > 0 ? <TopicTable topics={topics} /> : null}

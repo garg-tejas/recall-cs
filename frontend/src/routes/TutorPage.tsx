@@ -14,6 +14,7 @@ import type {
 } from '../api/types'
 import Button from '../components/ui/Button'
 import StateMessage from '../components/ui/StateMessage'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './tutor.css'
 
 interface StreamingMessage {
@@ -37,6 +38,7 @@ const SUBJECT_OPTIONS = [
 ]
 
 export default function TutorPage() {
+  usePageTitle('AI Tutor')
   const [conversations, setConversations] = useState<ConversationOut[]>([])
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null)
   const [messages, setMessages] = useState<ChatMessageOut[]>([])

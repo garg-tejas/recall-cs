@@ -8,6 +8,7 @@ import Card from '../components/ui/Card'
 import ProgressBar from '../components/ui/ProgressBar'
 import StateMessage from '../components/ui/StateMessage'
 import type { ReviewSummaryState } from './reviewFlow'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './review-summary.css'
 
 function isSummaryState(value: unknown): value is ReviewSummaryState {
@@ -25,6 +26,7 @@ function isSummaryState(value: unknown): value is ReviewSummaryState {
 }
 
 export default function ReviewSummaryPage() {
+  usePageTitle('Session Summary')
   const location = useLocation()
   const navigate = useNavigate()
 

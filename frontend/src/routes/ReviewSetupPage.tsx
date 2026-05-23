@@ -10,6 +10,7 @@ import Card from '../components/ui/Card'
 import Input from '../components/ui/Input'
 import StateMessage from '../components/ui/StateMessage'
 import type { ReviewSessionScopeState } from './reviewFlow'
+import { usePageTitle } from '../hooks/usePageTitle'
 import './review-setup.css'
 
 const SUBJECT_OPTIONS = [
@@ -23,6 +24,7 @@ function clampLimit(value: number) {
 }
 
 export default function ReviewSetupPage() {
+  usePageTitle('Review Setup')
   const navigate = useNavigate()
   const location = useLocation()
   const routeState = (location.state as ReviewSessionScopeState | null) ?? null
