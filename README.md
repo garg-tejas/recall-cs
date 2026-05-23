@@ -1,6 +1,6 @@
-# CoreCS Interview Lab
+# Recall.cs
 
-CoreCS Interview Lab is a full-stack CS interview prep system for OS, DBMS, and Computer Networks. It combines a hybrid RAG assistant with an adaptive quiz engine — you can ask conceptual questions backed by textbook retrieval, and practice recall on a spaced repetition schedule that adapts to your performance.
+Recall.cs is a full-stack CS interview prep system for OS, DBMS, and Computer Networks. It combines a hybrid RAG assistant with an adaptive quiz engine — you can ask conceptual questions backed by textbook retrieval, and practice recall on a spaced repetition schedule that adapts to your performance.
 
 ## Problem
 

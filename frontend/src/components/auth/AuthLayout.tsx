@@ -19,8 +19,8 @@ export default function AuthLayout({
 
   return (
     <section className={`auth-layout auth-layout--${mode}`}>
-      <aside className="auth-layout__brand" aria-label="Signal Lab overview">
-        <p className="auth-layout__eyebrow">Signal Lab</p>
+      <aside className="auth-layout__brand" aria-label="Recall.cs overview">
+        <p className="auth-layout__eyebrow">Recall.cs</p>
         <h1 className="auth-layout__headline">Train recall like a high-signal system.</h1>
         <p className="auth-layout__description">
           Daily adaptive reviews across OS, DBMS, and CN with measurable progress.

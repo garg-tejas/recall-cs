@@ -1,5 +1,5 @@
 [project]
-name = "corecs-interview-lab"
+name = "recall-cs"
 version = "0.1.0"
 description = "End-to-end RAG system with agentic orchestration for technical Q&A"
 readme = "README.md"

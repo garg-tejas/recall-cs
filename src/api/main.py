@@ -136,7 +136,7 @@ async def lifespan(app: FastAPI):
 cors_origins = _get_cors_origins()
 
 app = FastAPI(
-    title="Synthetix-CS API",
+    title="Recall.cs API",
     description="RAG API for technical Q&A (OS, DBMS, Computer Networks)",
     version="0.1.0",
     lifespan=lifespan,

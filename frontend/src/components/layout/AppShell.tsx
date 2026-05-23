@@ -30,7 +30,7 @@ export default function AppShell({
         <header className={cx('app-shell__nav', `app-shell__nav--${width}`)}>
           <Link to="/" className="app-shell__brand">
             <span className="app-shell__brand-mark" aria-hidden="true" />
-            Signal Lab
+            Recall.cs
           </Link>
           <p className="app-shell__crumb" aria-live="polite">
             {breadcrumb}
