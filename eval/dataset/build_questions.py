@@ -14,25 +14,16 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from src.rag import HybridSearcher, load_chunks
+from eval.dataset.validation import (
+    DatasetValidationError, QUESTIONS_PATH, load_questions as _load_questions, validate_questions,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
-QUESTIONS_PATH = ROOT / "data" / "questions.jsonl"
 
 
-def load_questions() -> List[Dict[str, Any]]:
-    """Load all questions from JSONL file."""
-    if not QUESTIONS_PATH.exists():
-        return []
-    
-    questions = []
-    with QUESTIONS_PATH.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            questions.append(json.loads(line))
-    return questions
+def load_questions(path: Path = QUESTIONS_PATH) -> List[Dict[str, Any]]:
+    """Load editable drafts, including files with comment headers."""
+    return _load_questions(path) if path.exists() else []
 
 
 def save_questions(questions: List[Dict[str, Any]]) -> None:
@@ -118,6 +109,8 @@ def link_chunks(question_id: str) -> None:
     print(f"Linking chunks for question: {question['query']}")
     print("=" * 60)
     
+    from src.rag import HybridSearcher, load_chunks
+
     chunks = load_chunks()
     searcher = HybridSearcher.from_chunks(chunks, use_reranker=True)
     
@@ -155,50 +148,12 @@ def link_chunks(question_id: str) -> None:
     print(f"\nLinked {len(selected_ids)} chunks to question '{question_id}'")
 
 
-def validate_dataset() -> None:
-    """Validate all questions have required fields."""
-    questions = load_questions()
-    
-    if not questions:
-        print("No questions found in dataset")
-        return
-    
-    print(f"Validating {len(questions)} questions...")
-    print("=" * 60)
-    
-    required_fields = ["id", "subject", "query", "question_type", "answer"]
-    errors = []
-    
-    for q in questions:
-        for field in required_fields:
-            if field not in q or not q[field]:
-                errors.append(f"{q.get('id', 'unknown')}: missing '{field}'")
-        
-        if q.get("subject") not in ("os", "dbms", "cn"):
-            errors.append(f"{q['id']}: invalid subject '{q.get('subject')}'")
-        
-        if q.get("question_type") not in ("definition", "procedural", "comparative", "factual"):
-            errors.append(f"{q['id']}: invalid question_type '{q.get('question_type')}'")
-    
-    if errors:
-        print("Validation errors:")
-        for error in errors:
-            print(f"  - {error}")
-    else:
-        print("All questions are valid!")
-    
-    # Print summary
-    by_subject = {}
-    by_type = {}
-    for q in questions:
-        by_subject[q["subject"]] = by_subject.get(q["subject"], 0) + 1
-        by_type[q["question_type"]] = by_type.get(q["question_type"], 0) + 1
-    
-    print("\nSummary:")
-    print(f"  Total questions: {len(questions)}")
-    print(f"  By subject: {by_subject}")
-    print(f"  By type: {by_type}")
-    print(f"  With chunks linked: {sum(1 for q in questions if q.get('supporting_chunk_ids'))}")
+def validate_dataset(profile: str = "retrieval", path: Path = QUESTIONS_PATH) -> None:
+    """Check declared schema/readiness without loading retrieval models."""
+    questions = _load_questions(path)
+    validate_questions(questions, profile=profile)
+    print(f"Validated {len(questions)} questions for '{profile}' profile.")
+    print("Structural checks do not establish human review or ground-truth correctness.")
 
 
 def import_from_llm(input_file: Path, auto_link: bool = False) -> None:
@@ -230,6 +185,8 @@ def import_from_llm(input_file: Path, auto_link: bool = False) -> None:
     searcher = None
     if auto_link:
         print("Initializing searcher for auto-linking...")
+        from src.rag import HybridSearcher, load_chunks
+
         chunks = load_chunks()
         searcher = HybridSearcher.from_chunks(chunks, use_reranker=True)
 
@@ -281,14 +238,16 @@ def import_from_llm(input_file: Path, auto_link: bool = False) -> None:
     print(f"  Total questions: {len(existing_questions)}")
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
         description="Build and manage the questions dataset for evaluation."
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
     subparsers.add_parser("add", help="Add a new question interactively")
-    subparsers.add_parser("validate", help="Validate all questions in the dataset")
+    validate_parser = subparsers.add_parser("validate", help="Validate questions without model loading")
+    validate_parser.add_argument("--profile", choices=["draft", "retrieval", "answer"], default="retrieval")
+    validate_parser.add_argument("--questions-file", type=Path, default=QUESTIONS_PATH)
     
     link_parser = subparsers.add_parser("link", help="Link supporting chunks to a question")
     link_parser.add_argument("question_id", help="Question ID to link chunks for")
@@ -297,14 +256,17 @@ def main() -> None:
     import_parser.add_argument("input_file", type=Path, help="Path to generated questions JSONL file")
     import_parser.add_argument("--auto-link", action="store_true", help="Automatically link supporting chunks")
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     
     if args.command == "add":
         add_question()
     elif args.command == "link":
         link_chunks(args.question_id)
     elif args.command == "validate":
-        validate_dataset()
+        try:
+            validate_dataset(args.profile, args.questions_file)
+        except DatasetValidationError as exc:
+            parser.error(str(exc))
     elif args.command == "import-from-llm":
         import_from_llm(args.input_file, auto_link=args.auto_link)
     else:

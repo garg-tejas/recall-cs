@@ -126,9 +126,11 @@ def main() -> None:
     print(f"Generated {len(SEED_QUESTIONS)} seed questions in {QUESTIONS_PATH}")
     print("\nNext steps:")
     print("1. Review questions.jsonl and add ground truth answers (replace [TODO] placeholders)")
-    print("2. Run: uv run python -m eval.dataset.build_questions link q_001")
-    print("3. Repeat for each question to link supporting chunks")
-    print("4. Run: uv run python -m eval.dataset.build_questions validate")
+    print("2. Manually verify and annotate supporting_chunk_ids against a fixed corpus")
+    print("3. Keep reviewed benchmark entries in a separate file; the link tool edits data/questions.jsonl by default")
+    print("4. Draft output is NOT an evaluation-ready benchmark. Validate it explicitly:")
+    print(f"   python -m eval.dataset.build_questions validate --profile retrieval --questions-file {QUESTIONS_PATH}")
+    print("   The seed draft and data/questions.jsonl are separate files; merge reviewed entries deliberately, preserving existing data.")
 
 
 if __name__ == "__main__":

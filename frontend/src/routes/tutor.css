@@ -235,3 +235,6 @@
   outline: none;
   box-shadow: 0 0 0 2px var(--accent);
 }
+.tutor-sidebar__select { display: block; width: 100%; padding: 0 20px 0 0; border: 0; border-radius: 0; text-align: left; background: transparent; color: var(--text-body); box-shadow: none; cursor: pointer; }
+.tutor-sidebar__select:hover:not(:disabled) { background: transparent; transform: none; box-shadow: none; }
+.tutor-message__incomplete { font: 10px var(--font-mono); color: #ffd391; margin: 0 0 10px; }

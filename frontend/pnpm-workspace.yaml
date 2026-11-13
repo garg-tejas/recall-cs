@@ -1,0 +1,4 @@
+# The SDK postinstall writes only a telemetry notice to the user's config.
+# It is unnecessary for the application and intentionally stays unexecuted.
+allowBuilds:
+  '@clerk/shared': false

@@ -1,68 +1,31 @@
 import type { ReactNode } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { UserButton, useAuth as useClerkAuth } from '@clerk/react'
-
 import { cx } from '../ui/cx'
 
 type ShellMode = 'workspace' | 'auth' | 'plain'
 type ShellWidth = 'narrow' | 'content' | 'wide'
+export interface AppShellProps { mode?: ShellMode; width?: ShellWidth; children?: ReactNode }
 
-export interface AppShellProps {
-  mode?: ShellMode
-  width?: ShellWidth
-  children?: ReactNode
-}
-
-export default function AppShell({
-  mode = 'workspace',
-  width = 'content',
-  children,
-}: AppShellProps) {
+export function StudyFrame({ mode = 'workspace', width = 'content', children, account }: AppShellProps & { account?: ReactNode }) {
   const location = useLocation()
-  const breadcrumb = resolveBreadcrumbLabel(location.pathname)
-  const clerkAuth = useClerkAuth()
-
-  return (
-    <div className={cx('app-shell', `app-shell--${mode}`)}>
-      <div className="app-shell__orb app-shell__orb--a" aria-hidden="true" />
-      <div className="app-shell__orb app-shell__orb--b" aria-hidden="true" />
-      {mode === 'workspace' ? (
-        <header className={cx('app-shell__nav', `app-shell__nav--${width}`)}>
-          <Link to="/" className="app-shell__brand">
-            <span className="app-shell__brand-mark" aria-hidden="true" />
-            Recall.cs
-          </Link>
-          <p className="app-shell__crumb" aria-live="polite">
-            {breadcrumb}
-          </p>
-          {clerkAuth.isSignedIn ? (
-            <div className="app-shell__user">
-              <UserButton />
-            </div>
-          ) : null}
-        </header>
-      ) : null}
-      <main className={cx('app-shell__content', `app-shell__content--${width}`)}>
-        {children ?? <Outlet />}
-      </main>
-    </div>
-  )
+  return <div className={cx('app-shell', `app-shell--${mode}`)}>
+    <a className="study-skip" href="#study-content">Skip to study content</a>
+    {mode === 'workspace' ? <header className="app-shell__nav">
+      <Link to="/" className="app-shell__brand"><span className="app-shell__brand-mark" aria-hidden="true">r.</span><span>Recall.cs<small>A COMPUTER SCIENCE STUDY</small></span></Link>
+      <nav className="study-nav" aria-label="Study navigation">
+        <NavLink to="/dashboard">Study desk</NavLink>
+        <NavLink to="/review/setup" className={location.pathname.startsWith('/review') ? 'active' : undefined}>Practice</NavLink>
+        <NavLink to="/tutor">Ask the textbook</NavLink>
+      </nav>
+      <div className="app-shell__user">{account}</div>
+    </header> : null}
+    <main id="study-content" tabIndex={-1} className={cx('app-shell__content', `app-shell__content--${width}`)}>{children ?? <Outlet />}</main>
+    {mode === 'workspace' ? <footer className="study-footer"><span>Recall.cs / Study with a reference.</span><span>Question → Recall → Check → Revisit</span></footer> : null}
+  </div>
 }
 
-function resolveBreadcrumbLabel(pathname: string): string {
-  const labelByPathname: Record<string, string> = {
-    '/': 'Landing',
-    '/dashboard': 'Dashboard',
-    '/review/setup': 'Review Setup',
-    '/review/path': 'Learning Path',
-    '/review': 'Review Workspace',
-    '/review/summary': 'Session Summary',
-    '/login': 'Login',
-    '/signup': 'Signup',
-    '/tutor': 'AI Tutor',
-  }
-
-  if (labelByPathname[pathname]) return labelByPathname[pathname]
-  if (pathname.startsWith('/review')) return 'Review'
-  return 'Workspace'
+export default function AppShell(props: AppShellProps) {
+  const { isSignedIn } = useClerkAuth()
+  return <StudyFrame {...props} account={isSignedIn ? <UserButton /> : <Link to="/login">Sign in →</Link>} />
 }

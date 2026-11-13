@@ -5,6 +5,7 @@ import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
 import ProgressBar from '../ui/ProgressBar'
+import { verdictBucket } from '../../lib/verdict'
 
 interface FeedbackPanelProps {
   result: QuizSessionAnswerResponse
@@ -36,13 +37,13 @@ export default function FeedbackPanel({
     if (typeof result.should_remediate === 'boolean') {
       return result.should_remediate
     }
-    return normalizedVerdict.includes('incorrect') || normalizedVerdict.includes('partial')
+    return verdictBucket(result.verdict) === 'incorrect' || verdictBucket(result.verdict) === 'partially_correct'
   }, [normalizedVerdict, result.should_remediate])
 
   const conceptSummary = useMemo(() => {
     const text = (result.concept_summary || '').trim()
     if (text) return text
-    return 'Your answer missed key concepts needed for a complete explanation.'
+    return 'No concept summary was returned. Compare your explanation with the reference answer.'
   }, [result.concept_summary])
 
   const whereYouMissed = useMemo(() => {
@@ -63,9 +64,10 @@ export default function FeedbackPanel({
   }, [normalizedVerdict])
 
   const scoreLabel = useMemo(() => {
-    if (typeof result.model_score !== 'number') return 'No score available'
+    if (verdictBucket(result.verdict) === 'ungraded') return 'Unavailable'
+    if (typeof result.model_score !== 'number' || !Number.isFinite(result.model_score) || result.model_score < 0 || result.model_score > 5) return 'Unavailable'
     return `${result.model_score}/5`
-  }, [result.model_score])
+  }, [result.model_score, result.verdict])
 
   const scorePercent = useMemo(() => {
     if (typeof result.model_score !== 'number') return 0
@@ -87,8 +89,8 @@ export default function FeedbackPanel({
       tone="default"
       padding="lg"
       kicker="Feedback"
-      title="Assessment complete"
-      subtitle="Review the feedback, then continue your session."
+      title={normalizedVerdict.includes('grading_error') ? 'Check the reference.' : 'Compare your reasoning.'}
+      subtitle="Model feedback is a study aid. Inspect the reference before continuing."
       actions={<Badge tone={verdictTone}>{verdictLabel}</Badge>}
     >
       <div className="review-feedback-panel__score">
@@ -96,11 +98,11 @@ export default function FeedbackPanel({
           <span>Model score</span>
           <strong>{scoreLabel}</strong>
         </div>
-        <ProgressBar
+        {scoreLabel !== 'Unavailable' ? <ProgressBar
           value={scorePercent}
           className="review-feedback-panel__score-bar"
           ariaLabel="Model score"
-        />
+        /> : null}
       </div>
 
       {normalizedVerdict.includes('dont_know') ? (
@@ -134,19 +136,20 @@ export default function FeedbackPanel({
               ))}
             </ul>
           ) : (
-            <p>Your answer missed key concepts from the reference answer.</p>
+            <p>No specific gaps were returned. Compare your explanation with the reference answer.</p>
           )}
         </section>
       ) : null}
 
       <section className="review-feedback-panel__section review-feedback-panel__section--reference">
         <h4>Reference answer</h4>
-        <p>{result.answer}</p>
+        <p>{result.answer || 'No reference answer was returned.'}</p>
       </section>
 
       {result.show_source_context && result.explanation ? (
         <details className="review-feedback-panel__context">
-          <summary>View source context</summary>
+          <summary>Inspect available source excerpt</summary>
+          <span className="review-feedback-panel__source-id">{result.source_chunk_id ? `Source chunk / ${result.source_chunk_id}` : 'Source identifier not provided'}</span>
           <p className="review-feedback-panel__snippet">{result.explanation}</p>
         </details>
       ) : null}

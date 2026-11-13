@@ -17,12 +17,13 @@ import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import ProgressBar from '../components/ui/ProgressBar'
 import StateMessage from '../components/ui/StateMessage'
-import Textarea from '../components/ui/Textarea'
+import ReviewWorkspace, { ReviewNotes } from '../components/review/ReviewWorkspace'
+import { verdictBucket } from '../lib/verdict'
 import type { ReviewSessionScopeState, ReviewSummaryState } from './reviewFlow'
 import { usePageTitle } from '../hooks/usePageTitle'
 import './review.css'
 
-type VerdictBucket = 'correct' | 'partially_correct' | 'incorrect'
+type VerdictBucket = ReturnType<typeof verdictBucket>
 
 interface SessionAttemptSnapshot {
   score: number | null
@@ -35,13 +36,6 @@ interface PathPosition {
   index: number
   total: number
   label: string
-}
-
-function normalizeVerdictBucket(value: string | null | undefined): VerdictBucket {
-  const normalized = (value || '').trim().toLowerCase()
-  if (normalized.includes('partial')) return 'partially_correct'
-  if (normalized.includes('correct')) return 'correct'
-  return 'incorrect'
 }
 
 function clampLimit(value: number): number {
@@ -291,7 +285,7 @@ export default function ReviewPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentCard || !sessionId) return
+    if (!currentCard || !sessionId || isSubmitting || result) return
     const trimmedAnswer = userAnswer.trim()
     if (!trimmedAnswer) {
       setError('Please enter an answer before submitting')
@@ -307,7 +301,7 @@ export default function ReviewPage() {
         user_answer: trimmedAnswer,
         response_time_ms: responseTimeMs,
       })
-      const verdict = normalizeVerdictBucket(res.verdict)
+      const verdict = verdictBucket(res.verdict)
       setResult(res)
       setProgress(res.progress)
       setSessionAttempts((previous) => [
@@ -331,7 +325,7 @@ export default function ReviewPage() {
   }
 
   const onDontKnow = async () => {
-    if (!currentCard || !sessionId) return
+    if (!currentCard || !sessionId || isSubmitting || result) return
     setIsSubmitting(true)
     setError(null)
     try {
@@ -343,7 +337,7 @@ export default function ReviewPage() {
         response_time_ms: responseTimeMs,
         action: 'dont_know',
       })
-      const verdict = normalizeVerdictBucket(res.verdict)
+      const verdict = verdictBucket(res.verdict)
       setResult(res)
       setProgress(res.progress)
       setSessionAttempts((previous) => [
@@ -367,7 +361,7 @@ export default function ReviewPage() {
   }
 
   const onSkip = async () => {
-    if (!sessionId) return
+    if (!sessionId || isSubmitting || result) return
     setIsSubmitting(true)
     setError(null)
     try {
@@ -415,9 +409,9 @@ export default function ReviewPage() {
   const progressPercent = useMemo(() => {
     if (!progress || progress.total === 0) return 0
     if (progress.completed && !currentCard) return 100
-    const stepsIntoRun = currentCard ? displayedIndex + 1 : displayedIndex
+    const stepsIntoRun = displayedIndex + (result ? 1 : 0)
     return Math.round((stepsIntoRun / progress.total) * 100)
-  }, [currentCard, displayedIndex, progress])
+  }, [currentCard, displayedIndex, progress, result])
 
   const queueRemaining = useMemo(() => {
     if (!currentCard || !progress) return 0
@@ -439,10 +433,10 @@ export default function ReviewPage() {
   }, [currentCard, pathTopics])
 
   return (
-    <div className="review layout-stack layout-stack--lg">
+    <div className="review reading-sheet layout-stack layout-stack--lg">
       <PageHeader
         eyebrow="Session"
-        title="Review workspace"
+        title="One question at a time."
         subtitle={
           currentCard
             ? `Card ${displayedIndex + 1} of ${totalCards}`
@@ -507,83 +501,21 @@ export default function ReviewPage() {
         </Card>
       ) : null}
 
-      {!isLoading && !error && currentCard ? (
-        <section className="review-workspace" key={`${currentCard.card_id}-${displayedIndex}`}>
-          <Card
-            className="review-question"
-            tone="default"
-            padding="lg"
-            kicker={`Topic: ${currentCard.topic}`}
-            title="Question"
-          >
-            {pathPosition ? (
-              <p className="review-question__path-position">
-                Node {pathPosition.index + 1} of {pathPosition.total}: {pathPosition.label}
-              </p>
-            ) : null}
-            <p className="review-question__text">{currentCard.question}</p>
-            <p className="review-question__hint">
-              Explain your answer clearly. Use precise terms where possible.
-            </p>
-          </Card>
-
-          <Card
-            className="review-compose"
-            tone="inset"
-            padding="lg"
-            kicker="Answer composer"
-            title="Your response"
-            subtitle={
-              result
-                ? 'Answer submitted. Review feedback and choose the next step below.'
-                : 'Draft your response before submitting.'
-            }
-          >
-            <form onSubmit={onSubmit} className="review-compose__form">
-              <Textarea
-                label="Your answer"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                rows={9}
-                required
-                disabled={!!result}
-              />
-
-              <div className="review-compose__actions">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || !!result || !sessionId}
-                  loading={isSubmitting}
-                  loadingLabel="Grading..."
-                >
-                  Submit answer
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={isSubmitting || !!result || !sessionId}
-                  onClick={onDontKnow}
-                >
-                  Don&apos;t know
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={isSubmitting || !!result || !sessionId}
-                  onClick={onSkip}
-                >
-                  Skip
-                </Button>
-              </div>
-
-              {result ? (
-                <p className="review-compose__submitted-note">
-                  Submission locked. Use the feedback panel to continue.
-                </p>
-              ) : null}
-            </form>
-          </Card>
-        </section>
+      <div className="review-desk">
+      {!isLoading && currentCard ? (
+        <ReviewWorkspace
+          key={`${currentCard.card_id}-${displayedIndex}`}
+          card={currentCard}
+          answer={userAnswer}
+          onAnswer={setUserAnswer}
+          submitted={!!result}
+          busy={isSubmitting}
+          canSubmit={!!sessionId}
+          onSubmit={onSubmit}
+          onDontKnow={onDontKnow}
+          onSkip={onSkip}
+          pathPosition={pathPosition}
+        />
       ) : null}
 
       {result ? (
@@ -594,7 +526,8 @@ export default function ReviewPage() {
           onFinishSession={finishAndNavigateSummary}
           onBackToDashboard={finishAndNavigateBack}
         />
-      ) : null}
+      ) : !isLoading && currentCard ? <ReviewNotes /> : null}
+      </div>
     </div>
   )
 }

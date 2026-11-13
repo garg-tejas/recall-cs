@@ -24,6 +24,8 @@ The core architecture has three coupled layers:
 
 The backend is FastAPI + async SQLAlchemy on PostgreSQL. Frontend is React 18 + TypeScript + Vite. LLM calls go through an OpenAI-compatible client layer pointed at GLM via Z.AI.
 
+Benchmark readiness is separate from generated question quality. The question evaluator rejects placeholder answers and missing relevance labels before loading retrieval models, and supports a compute-free `--validate-only` preflight. See [ground-truth curation and validation profiles](eval/dataset/README.md) before reporting retrieval or answer scores.
+
 ![Architecture](assets/architecture.png)
 
 ## Iterations

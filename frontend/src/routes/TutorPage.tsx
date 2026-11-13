@@ -8,26 +8,21 @@ import {
 } from '../api/tutor'
 import type {
   ChatMessageOut,
-  ChunkSummary,
   ConversationOut,
   CreateConversationRequest,
 } from '../api/types'
 import Button from '../components/ui/Button'
 import StateMessage from '../components/ui/StateMessage'
 import { usePageTitle } from '../hooks/usePageTitle'
+import { appendTutorToken, createTutorReply, finalizeTutorReply } from '../lib/tutor-stream'
 import './tutor.css'
 
-interface StreamingMessage {
-  role: 'assistant'
-  content: string
-  citations: { index: number; chunk_id: string; snippet: string }[]
-  chunks: ChunkSummary[]
-}
+type TutorMessage = ChatMessageOut & { incomplete?: boolean }
 
 // Monotonic counter for stable message IDs during a session
 let _msgIdCounter = 0
 function nextMsgId(): number {
-  return ++_msgIdCounter
+  return -(++_msgIdCounter)
 }
 
 const SUBJECT_OPTIONS = [
@@ -41,14 +36,23 @@ export default function TutorPage() {
   usePageTitle('AI Tutor')
   const [conversations, setConversations] = useState<ConversationOut[]>([])
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null)
-  const [messages, setMessages] = useState<ChatMessageOut[]>([])
+  const [messages, setMessages] = useState<TutorMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedSubject, setSelectedSubject] = useState('')
-  const [streamingMsg, setStreamingMsg] = useState<StreamingMessage | null>(null)
+  const [streamingMsg, setStreamingMsg] = useState<ChatMessageOut | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const streamControllerRef = useRef<AbortController | null>(null)
+  const conversationRequestRef = useRef(0)
+
+  useEffect(() => () => {
+    const controller = streamControllerRef.current
+    streamControllerRef.current = null
+    controller?.abort()
+    conversationRequestRef.current += 1
+  }, [])
 
   const loadConversations = useCallback(async () => {
     try {
@@ -64,20 +68,27 @@ export default function TutorPage() {
   }, [loadConversations])
 
   const loadMessages = useCallback(async (id: number) => {
+    const request = ++conversationRequestRef.current
+    setIsLoading(true)
     try {
       const data = await getConversation(id)
+      if (request !== conversationRequestRef.current) return
       setMessages(data.messages || [])
       setSelectedSubject(data.subject || '')
     } catch {
-      setError('Failed to load conversation')
+      if (request === conversationRequestRef.current) setError('Failed to load conversation')
+    } finally {
+      if (request === conversationRequestRef.current) setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    messagesEndRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }, [messages, streamingMsg])
 
   const handleNewChat = useCallback(async () => {
+    if (streamControllerRef.current || isLoading) return
+    setIsLoading(true)
     try {
       const payload: CreateConversationRequest = {
         subject: selectedSubject || undefined,
@@ -90,22 +101,26 @@ export default function TutorPage() {
       await loadConversations()
     } catch {
       setError('Failed to create conversation')
+    } finally {
+      setIsLoading(false)
     }
-  }, [selectedSubject, loadConversations])
+  }, [selectedSubject, loadConversations, isLoading])
 
   const handleSelectConversation = useCallback(
     async (id: number) => {
+      if (streamControllerRef.current || isLoading) return
       setActiveConversationId(id)
       setStreamingMsg(null)
       setError(null)
       await loadMessages(id)
     },
-    [loadMessages]
+    [loadMessages, isLoading]
   )
 
   const handleDeleteConversation = useCallback(
     async (id: number, e: React.MouseEvent) => {
       e.stopPropagation()
+      if (streamControllerRef.current || isLoading) return
       try {
         await deleteConversation(id)
         if (activeConversationId === id) {
@@ -117,112 +132,59 @@ export default function TutorPage() {
         setError('Failed to delete conversation')
       }
     },
-    [activeConversationId, loadConversations]
+    [activeConversationId, loadConversations, isLoading]
   )
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim()
-    if (!trimmed || isStreaming) return
-
+    if (!trimmed || streamControllerRef.current || isLoading) return
+    const controller = new AbortController()
+    streamControllerRef.current = controller
+    const stillCurrent = () => streamControllerRef.current === controller && !controller.signal.aborted
     setInput('')
     setError(null)
     setIsLoading(true)
     setIsStreaming(true)
-
-    // Optimistically add user message with stable ID
-    const userMsg: ChatMessageOut = {
-      id: nextMsgId(),
-      role: 'user',
-      content: trimmed,
-      citations: [],
-      chunks: [],
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, userMsg])
-
-    const streamMsg: StreamingMessage = {
-      role: 'assistant',
-      content: '',
-      citations: [],
-      chunks: [],
-    }
-    setStreamingMsg(streamMsg)
-
+    const createdAt = new Date().toISOString()
+    const userMessage: TutorMessage = { id: nextMsgId(), role: 'user', content: trimmed, citations: [], chunks: [], created_at: createdAt }
+    setMessages((previous) => [...previous, userMessage])
+    let reply = createTutorReply(nextMsgId(), createdAt)
+    setStreamingMsg(reply)
     try {
-      await tutorChatStream(
-        {
-          query: trimmed,
-          conversation_id: activeConversationId,
-          subject: selectedSubject || undefined,
-        },
-        (token) => {
-          setStreamingMsg((prev) =>
-            prev ? { ...prev, content: prev.content + token } : null
-          )
-        },
-        (citations, chunks, conversationId) => {
-          setStreamingMsg((prev) => {
-            if (!prev) return null
-            return {
-              ...prev,
-              citations,
-              chunks,
-            }
-          })
-          if (conversationId && !activeConversationId) {
-            setActiveConversationId(conversationId)
-          }
-          setIsStreaming(false)
-          setIsLoading(false)
-          void loadConversations()
-        },
-        (errorMsg) => {
-          setError(errorMsg)
-          setIsStreaming(false)
-          setIsLoading(false)
-        }
-      )
-
-      // Move streaming message into messages list
-      setMessages((prev) => {
-        const assistantMsg: ChatMessageOut = {
-          id: nextMsgId(),
-          role: 'assistant',
-          content: streamMsg.content,
-          citations: streamMsg.citations,
-          chunks: streamMsg.chunks,
-          created_at: new Date().toISOString(),
-        }
-        return [...prev, assistantMsg]
-      })
+      const completion = await tutorChatStream({ query: trimmed, conversation_id: activeConversationId, subject: selectedSubject || undefined }, (token) => {
+        if (!stillCurrent()) return
+        reply = appendTutorToken(reply, token)
+        setStreamingMsg(reply)
+      }, controller.signal)
+      if (!stillCurrent()) return
+      const completedReply = finalizeTutorReply(reply, completion)
+      setMessages((previous) => [...previous, completedReply])
       setStreamingMsg(null)
-    } catch (err) {
-      setError((err as Error).message || 'Chat failed')
-      setIsStreaming(false)
-      setIsLoading(false)
+      if (completion.conversationId !== null && activeConversationId === null) setActiveConversationId(completion.conversationId)
+      void loadConversations()
+    } catch (failure) {
+      if (!stillCurrent()) return
+      setError(failure instanceof Error ? failure.message : 'Chat failed')
+      if (reply.content) setMessages((previous) => [...previous, { ...reply, incomplete: true }])
       setStreamingMsg(null)
+      setInput(trimmed)
+    } finally {
+      if (stillCurrent()) {
+        streamControllerRef.current = null
+        setIsStreaming(false)
+        setIsLoading(false)
+      }
     }
-  }, [input, isStreaming, activeConversationId, selectedSubject, loadConversations])
+  }, [input, isLoading, activeConversationId, selectedSubject, loadConversations])
 
-  const allMessages = useMemo(() => {
-    if (!streamingMsg) return messages
-    const assistantMsg: ChatMessageOut = {
-      id: nextMsgId(),
-      role: 'assistant',
-      content: streamingMsg.content,
-      citations: streamingMsg.citations,
-      chunks: streamingMsg.chunks,
-      created_at: new Date().toISOString(),
-    }
-    return [...messages, assistantMsg]
-  }, [messages, streamingMsg])
+  const allMessages = useMemo<TutorMessage[]>(() => streamingMsg ? [...messages, streamingMsg] : messages, [messages, streamingMsg])
 
   return (
     <div className="tutor-page">
       <aside className="tutor-sidebar">
         <div className="tutor-sidebar__header">
           <h2>Conversations</h2>
-          <Button type="button" size="sm" onClick={handleNewChat}>
+          <Button type="button" size="sm" onClick={handleNewChat} disabled={isStreaming || isLoading}>
             + New
           </Button>
         </div>
@@ -236,18 +198,22 @@ export default function TutorPage() {
               className={`tutor-sidebar__item${
                 activeConversationId === conv.id ? ' tutor-sidebar__item--active' : ''
               }`}
-              onClick={() => void handleSelectConversation(conv.id)}
             >
+              <button type="button" className="tutor-sidebar__select" disabled={isStreaming || isLoading} onClick={() => void handleSelectConversation(conv.id)} aria-current={activeConversationId === conv.id ? 'true' : undefined}>
               <span className="tutor-sidebar__title">
                 {conv.title || 'Untitled'}
               </span>
               <span className="tutor-sidebar__meta">
                 {conv.subject?.toUpperCase() || 'General'} · {conv.message_count} msgs
               </span>
+              </button>
               <button
+                type="button"
+                disabled={isStreaming || isLoading}
                 className="tutor-sidebar__delete"
                 onClick={(e) => void handleDeleteConversation(conv.id, e)}
-                title="Delete"
+                title="Delete conversation"
+                aria-label={`Delete ${conv.title || 'untitled conversation'}`}
               >
                 ×
               </button>
@@ -264,8 +230,9 @@ export default function TutorPage() {
         </div>
 
         <div className="tutor-scope">
-          <label>Scope:</label>
+          <label htmlFor="tutor-subject">Scope:</label>
           <select
+            id="tutor-subject"
             value={selectedSubject}
             onChange={(e) => setSelectedSubject(e.target.value)}
             disabled={isStreaming || isLoading}
@@ -291,7 +258,8 @@ export default function TutorPage() {
               className={`tutor-message tutor-message--${msg.role}`}
             >
               <div className="tutor-message__bubble">
-                <p className="tutor-message__content">{msg.content}</p>
+                {msg.incomplete ? <p className="tutor-message__incomplete">Incomplete response · request failed</p> : null}
+                <p className="tutor-message__content">{msg.content || (msg === streamingMsg ? 'Waiting for the first token…' : '')}</p>
                 {msg.citations && msg.citations.length > 0 && (
                   <details className="tutor-message__citations">
                     <summary>Sources ({msg.citations.length})</summary>
@@ -335,6 +303,7 @@ export default function TutorPage() {
         >
           <input
             type="text"
+            aria-label="Question for the study assistant"
             placeholder="Ask about OS, DBMS, CN..."
             value={input}
             onChange={(e) => setInput(e.target.value)}

@@ -13,15 +13,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, TYPE_CHECKING
 
-from eval.dataset.build_questions import load_questions
-from src.rag import HybridSearcher, load_chunks
+from eval.dataset.validation import (
+    DatasetValidationError, QUESTIONS_PATH, load_questions, validate_questions,
+)
+if TYPE_CHECKING:
+    from src.rag import HybridSearcher
 
 ROOT = Path(__file__).resolve().parents[2]
-QUESTIONS_PATH = ROOT / "data" / "questions.jsonl"
 
 
 def compute_retrieval_metrics(
@@ -39,8 +40,11 @@ def compute_retrieval_metrics(
             "mrr": float,
         }
     """
-    if not ground_truth_chunk_ids:
-        return {"precision@k": 0.0, "recall@k": 0.0, "mrr": 0.0}
+    if k < 1:
+        raise ValueError("k must be positive")
+    validate_questions([{"id": "metric_input", "query": "Retrieval labels", "supporting_chunk_ids": ground_truth_chunk_ids}])
+    if len(retrieved_chunk_ids) != len(set(retrieved_chunk_ids)):
+        raise ValueError("Retrieved chunk IDs must be unique before computing retrieval metrics")
     
     ground_truth_set = set(ground_truth_chunk_ids)
     top_k_retrieved = retrieved_chunk_ids[:k]
@@ -72,6 +76,9 @@ def evaluate_question(
     top_k: int = 5,
 ) -> Dict:
     """Evaluate a single question and return metrics."""
+    if top_k < 1:
+        raise ValueError("top_k must be positive")
+    validate_questions([question], profile="retrieval")
     query = question["query"]
     ground_truth_chunk_ids = question.get("supporting_chunk_ids", [])
     
@@ -94,7 +101,7 @@ def evaluate_question(
     }
 
 
-def main() -> None:
+def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
         description="Evaluate questions dataset with retrieval metrics."
     )
@@ -116,32 +123,40 @@ def main() -> None:
         help="Path to questions.jsonl file",
     )
 
-    args = parser.parse_args()
+    parser.add_argument("--validate-only", action="store_true", help="Check structural evaluation readiness without loading retrieval models")
+    args = parser.parse_args(argv)
+    if args.top_k < 1:
+        parser.error("--top-k must be positive")
 
     # Load questions
-    if not args.questions_file.exists():
-        print(f"Error: Questions file not found at {args.questions_file}")
-        print("Run: uv run python -m eval.dataset.seed_from_test_queries")
-        return
-
-    questions = load_questions()
-    if not questions:
-        print("No questions found in dataset")
-        return
+    try:
+        questions = load_questions(args.questions_file)
+    except DatasetValidationError as exc:
+        parser.error(str(exc))
 
     # Filter by subject if requested
     if args.subject:
         questions = [q for q in questions if q.get("subject") == args.subject]
 
-    if not questions:
-        print(f"No questions found for subject '{args.subject}'")
+    try:
+        validate_questions(questions, profile="retrieval")
+    except DatasetValidationError as exc:
+        parser.error(str(exc))
+    if args.validate_only:
+        print(f"Validated {len(questions)} retrieval questions structurally. Human review and corpus label checks are still required.")
         return
 
     print(f"Evaluating {len(questions)} questions (top_k={args.top_k})...")
     print("=" * 60)
 
     # Load searcher
+    from src.rag import HybridSearcher, load_chunks
+
     chunks = load_chunks()
+    try:
+        validate_questions(questions, profile="retrieval", known_chunk_ids={chunk.id for chunk in chunks})
+    except DatasetValidationError as exc:
+        parser.error(str(exc))
     searcher = HybridSearcher.from_chunks(chunks, use_reranker=True)
 
     # Evaluate each question
